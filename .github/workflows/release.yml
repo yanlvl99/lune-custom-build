@@ -121,15 +121,15 @@ jobs:
           $dialog.Save("installer/dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
           $dialog.Dispose()
 
-      - name: Install WiX
-        run: |
-          dotnet tool install --global wix
-          wix extension add WixToolset.UI.wixext
+      - name: Install WiX Tool
+        run: dotnet tool install --global wix
 
       - name: Build MSI
         shell: pwsh
         working-directory: installer
         run: |
+          wix extension add WixToolset.UI.wixext
+          wix extension list
           wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext
 
       - name: Upload MSI
