@@ -1,3 +1,4 @@
+--!nocheck
 -- Test FFI module
 local ffi = require("@lune/ffi")
 

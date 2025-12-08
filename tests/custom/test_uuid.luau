@@ -1,3 +1,5 @@
+--!nocheck
+--!nocheck
 -- Test UUID
 print("=== UUID Test ===")
 

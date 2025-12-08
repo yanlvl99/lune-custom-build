@@ -1,3 +1,5 @@
+--!nocheck
+--!nocheck
 -- Fixed UDP/TCP test - using correct API
 local net = require("@lune/net")
 local task = require("@lune/task")

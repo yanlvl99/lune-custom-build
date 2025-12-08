@@ -1,3 +1,4 @@
+--!nocheck
 -- Comprehensive FFI test using Windows system DLLs
 local ffi = require("@lune/ffi")
 

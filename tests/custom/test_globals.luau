@@ -1,3 +1,5 @@
+--!nocheck
+--!nocheck
 -- Test Extended Globals
 print("=== Extended Globals Test ===")
 print("")

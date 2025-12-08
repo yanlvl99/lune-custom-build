@@ -159,32 +159,24 @@ jobs:
           body: |
             ## Lune Custom Build ${{ github.ref_name }}
 
-            A supercharged standalone Luau runtime for backend and game-server development.
+            A standalone Luau runtime for backend and game-server development.
 
-            ### 📥 Downloads
+            ### Downloads
 
             | Platform | File |
             |----------|------|
-            | **Windows Installer** | `lune-installer.msi` (Recommended) |
-            | Windows (x86_64) | `lune-windows-x86_64.zip` |
-            | Linux (x86_64) | `lune-linux-x86_64.tar.gz` |
-            | macOS (Intel) | `lune-macos-x86_64.tar.gz` |
-            | macOS (Apple Silicon) | `lune-macos-aarch64.tar.gz` |
+            | **Windows Installer** | `lune-installer.msi` (recommended) |
+            | Windows ZIP | `lune-windows-x86_64.zip` |
+            | Linux | `lune-linux-x86_64.tar.gz` |
+            | macOS Intel | `lune-macos-x86_64.tar.gz` |
+            | macOS ARM | `lune-macos-aarch64.tar.gz` |
 
-            ### ✨ Custom Features (Not in Standard Lune)
-
-            This build includes several exclusive modules and language extensions:
-
-            - **📦 Package Manager**: Built-in support for installing packages (`lune --init`, `lune --install`)
-            - **🔌 FFI Support**: Call native DLL/SO functions using `@lune/ffi`
-            - **💾 SQL Database**: SQLite support via `@lune/sql`
-            - **🌐 Advanced Networking**: Full UDP & TCP socket support (`net.udp`, `net.tcp`)
-            - **🧮 Extended Globals**: `uuid.v4()`, `uuid.v7()`, `math.clamp`, `math.map`, `warn()`, and more!
-
-            ### Install with Rokit
-            ```bash
-            rokit add yanlvl99/lune-custom-build@${{ github.ref_name }}
-            ```
+            ### New Features
+            - Package Manager (`--init`, `--install`)
+            - SQL Database (`@lune/sql`)
+            - Extended Globals (`math.clamp`, `uuid.v4`, etc.)
+            - UDP/TCP Sockets
+            - FFI Support (`@lune/ffi`)
 
             ### Install with Rokit
             ```bash

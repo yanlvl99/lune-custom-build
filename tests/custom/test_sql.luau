@@ -1,3 +1,5 @@
+--!nocheck
+--!nocheck
 -- Test SQL module
 local sql = require("@lune/sql")
 
