@@ -1916,6 +1916,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lune-std-ffi"
+version = "0.3.4"
+dependencies = [
+ "libloading",
+ "lune-utils",
+ "mlua",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "lune-std-fs"
 version = "0.3.4"
 dependencies = [
