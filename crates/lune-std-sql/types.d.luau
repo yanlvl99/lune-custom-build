@@ -27,12 +27,18 @@ export type SqlStatement = {
     execute: (self: SqlStatement, params: {any}?) -> {[string]: any} | number,
 }
 
+local sql = {}
+
 --- Open a SQLite database file.
 --- Creates the file if it doesn't exist.
-declare function open(path: string): SqlConnection
+function sql.open(path: string): SqlConnection
+    return nil :: any
+end
 
 --- Open an in-memory SQLite database.
 --- Data is lost when the connection is closed.
-declare function memory(): SqlConnection
+function sql.memory(): SqlConnection
+    return nil :: any
+end
 
-return nil
+return sql
