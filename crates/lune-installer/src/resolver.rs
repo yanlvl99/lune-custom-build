@@ -33,17 +33,22 @@ impl PackageResolver {
             .iter()
             .filter_map(|entry| {
                 let v = entry.version.trim_start_matches('v');
-                Version::parse(v).ok().filter(|ver| req.matches(ver)).map(|ver| (entry, ver))
+                Version::parse(v)
+                    .ok()
+                    .filter(|ver| req.matches(ver))
+                    .map(|ver| (entry, ver))
             })
             .collect();
 
         // Sort by version descending (highest first)
         matching.sort_by(|a, b| b.1.cmp(&a.1));
 
-        let best = matching.first().ok_or_else(|| InstallError::NoCompatibleVersion {
-            package: manifest.name.clone(),
-            constraint: constraint.to_owned(),
-        })?;
+        let best = matching
+            .first()
+            .ok_or_else(|| InstallError::NoCompatibleVersion {
+                package: manifest.name.clone(),
+                constraint: constraint.to_owned(),
+            })?;
 
         Ok(ResolvedPackage {
             name: manifest.name.clone(),
@@ -64,9 +69,21 @@ mod tests {
             name: "test".to_owned(),
             repository: "https://github.com/test/test".to_owned(),
             versions: vec![
-                VersionEntry { version: "1.0.0".to_owned(), tag: "v1.0.0".to_owned(), checksum: None },
-                VersionEntry { version: "1.1.0".to_owned(), tag: "v1.1.0".to_owned(), checksum: None },
-                VersionEntry { version: "2.0.0".to_owned(), tag: "v2.0.0".to_owned(), checksum: None },
+                VersionEntry {
+                    version: "1.0.0".to_owned(),
+                    tag: "v1.0.0".to_owned(),
+                    checksum: None,
+                },
+                VersionEntry {
+                    version: "1.1.0".to_owned(),
+                    tag: "v1.1.0".to_owned(),
+                    checksum: None,
+                },
+                VersionEntry {
+                    version: "2.0.0".to_owned(),
+                    tag: "v2.0.0".to_owned(),
+                    checksum: None,
+                },
             ],
             description: None,
         };

@@ -1,6 +1,6 @@
 //! Git operations for cloning repositories.
 
-use git2::{build::RepoBuilder, FetchOptions, Repository};
+use git2::{FetchOptions, Repository, build::RepoBuilder};
 use lune_utils::{AbsolutePath, InstallError};
 
 /// Clone a repository with shallow depth.
@@ -16,10 +16,12 @@ pub fn clone_shallow(
     builder.fetch_options(fetch_opts);
     builder.branch(tag);
 
-    builder.clone(url, target.as_path()).map_err(|e| InstallError::GitCloneFailed {
-        url: url.to_owned(),
-        message: e.message().to_owned(),
-    })
+    builder
+        .clone(url, target.as_path())
+        .map_err(|e| InstallError::GitCloneFailed {
+            url: url.to_owned(),
+            message: e.message().to_owned(),
+        })
 }
 
 /// List remote tags from a repository URL.
@@ -29,17 +31,15 @@ pub fn list_remote_tags(url: &str) -> Result<Vec<String>, InstallError> {
 
     let mut remote = repo.remote_anonymous(url).map_err(InstallError::from)?;
 
-    remote.connect(git2::Direction::Fetch).map_err(InstallError::from)?;
+    remote
+        .connect(git2::Direction::Fetch)
+        .map_err(InstallError::from)?;
 
     let tags: Vec<String> = remote
         .list()
         .map_err(InstallError::from)?
         .iter()
-        .filter_map(|head| {
-            head.name()
-                .strip_prefix("refs/tags/")
-                .map(|s| s.to_owned())
-        })
+        .filter_map(|head| head.name().strip_prefix("refs/tags/").map(|s| s.to_owned()))
         .collect();
 
     Ok(tags)

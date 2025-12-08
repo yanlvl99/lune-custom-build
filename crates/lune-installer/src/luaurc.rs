@@ -26,11 +26,10 @@ pub async fn generate(
     }
 
     let luaurc = LuauRc { aliases };
-    let json = serde_json::to_string_pretty(&luaurc)
-        .map_err(|e| InstallError::InvalidConfig {
-            path: ".luaurc".to_owned(),
-            reason: e.to_string(),
-        })?;
+    let json = serde_json::to_string_pretty(&luaurc).map_err(|e| InstallError::InvalidConfig {
+        path: ".luaurc".to_owned(),
+        reason: e.to_string(),
+    })?;
 
     let luaurc_path = packages_dir
         .as_path()
