@@ -11,6 +11,7 @@
 /staging
 /docs-fork
 /lune_packages
+/installer
 
 /**/bin
 /**/out

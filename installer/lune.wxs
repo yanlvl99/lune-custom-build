@@ -2,7 +2,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="Lune Custom Build"
            Manufacturer="yanlvl99"
-           Version="0.10.5"
+           Version="0.10.6"
            UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
            Language="1033"
            Scope="perMachine">
@@ -10,42 +10,28 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
-    <Feature Id="MainFeature" Title="Lune Custom Build" Level="1">
-      <ComponentGroupRef Id="ProductComponents" />
-      <ComponentRef Id="PathEnvVar" />
-    </Feature>
-
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Lune">
-        <Component Id="LuneExe" Guid="*">
+        <Component Id="LuneExe" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
           <File Id="LuneExeFile" Source="lune.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="PathEnvVar" Guid="B2C3D4E5-F678-90AB-CDEF-123456789ABC">
+          <Environment Id="PATH"
+                       Name="PATH"
+                       Value="[INSTALLFOLDER]"
+                       Permanent="no"
+                       Part="last"
+                       Action="set"
+                       System="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
 
-    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+    <Feature Id="MainFeature" Title="Lune Custom Build" Level="1">
       <ComponentRef Id="LuneExe" />
-    </ComponentGroup>
+      <ComponentRef Id="PathEnvVar" />
+    </Feature>
 
-    <!-- Add to PATH -->
-    <Component Id="PathEnvVar" Directory="INSTALLFOLDER" Guid="*">
-      <Environment Id="PATH"
-                   Name="PATH"
-                   Value="[INSTALLFOLDER]"
-                   Permanent="no"
-                   Part="last"
-                   Action="set"
-                   System="yes" />
-    </Component>
-
-    <!-- UI -->
-    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
-    <UIRef Id="WixUI_InstallDir" />
-    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
-    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
-
-    <!-- Icon -->
     <Icon Id="LuneIcon" SourceFile="lune.ico" />
     <Property Id="ARPPRODUCTICON" Value="LuneIcon" />
     <Property Id="ARPHELPLINK" Value="https://yanlvl99.github.io/lune-custom-build-doc/" />
