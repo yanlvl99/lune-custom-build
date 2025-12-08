@@ -1,0 +1,5 @@
+{
+    "name": "example-colors",
+    "description": "ANSI color utilities for Luau scripts",
+    "repository": "https://github.com/yanlvl99/lune-colors.git"
+}

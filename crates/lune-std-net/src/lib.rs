@@ -46,6 +46,11 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
 
     let submodule_tcp = TableBuilder::new(lua.clone())?
         .with_async_function("connect", net_tcp_connect)?
+        .with_async_function("listen", net_tcp_listen)?
+        .build_readonly()?;
+
+    let submodule_udp = TableBuilder::new(lua.clone())?
+        .with_async_function("bind", net_udp_bind)?
         .build_readonly()?;
 
     let submodule_ws = TableBuilder::new(lua.clone())?
@@ -60,6 +65,7 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
         .with_function("urlDecode", net_url_decode)?
         .with_value("http", submodule_http)?
         .with_value("tcp", submodule_tcp)?
+        .with_value("udp", submodule_udp)?
         .with_value("ws", submodule_ws)?
         .build_readonly()
 }
@@ -76,6 +82,14 @@ async fn net_http_serve(lua: Lua, (port, config): (u16, ServeConfig)) -> LuaResu
 
 async fn net_tcp_connect(_: Lua, (host, port, config): (String, u16, TcpConfig)) -> LuaResult<Tcp> {
     self::client::connect_tcp(host, port, config).await
+}
+
+async fn net_tcp_listen(_: Lua, addr: String) -> LuaResult<shared::tcp_server::TcpServer> {
+    shared::tcp_server::TcpServer::listen(&addr).await
+}
+
+async fn net_udp_bind(_: Lua, addr: String) -> LuaResult<shared::udp::UdpSocket> {
+    shared::udp::UdpSocket::bind(&addr)
 }
 
 async fn net_ws_connect(_: Lua, url: String) -> LuaResult<Websocket<WsStream>> {

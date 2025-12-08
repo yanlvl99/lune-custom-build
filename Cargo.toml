@@ -3,6 +3,7 @@ resolver = "2"
 default-members = ["crates/lune"]
 members = [
     "crates/lune",
+    "crates/lune-installer",
     "crates/lune-roblox",
     "crates/lune-std",
     "crates/lune-std-datetime",
@@ -13,6 +14,7 @@ members = [
     "crates/lune-std-regex",
     "crates/lune-std-roblox",
     "crates/lune-std-serde",
+    "crates/lune-std-sql",
     "crates/lune-std-stdio",
     "crates/lune-std-task",
     "crates/lune-utils",

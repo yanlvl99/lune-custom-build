@@ -3,8 +3,8 @@ name = "lune"
 version = "0.10.4"
 edition = "2024"
 license = "MPL-2.0"
-repository = "https://github.com/lune-org/lune"
-description = "A standalone Luau runtime"
+repository = "https://github.com/yanlvl99/lune-custom-build"
+description = "A standalone Luau runtime for backend/game-server development"
 readme = "../../README.md"
 keywords = ["cli", "lua", "luau", "runtime"]
 categories = ["command-line-interface"]
@@ -44,7 +44,7 @@ std = [
     "std-task",
 ]
 
-cli = ["dep:clap", "dep:rustyline", "dep:zip", "dep:lune-std-net"]
+cli = ["dep:clap", "dep:rustyline", "dep:zip", "dep:lune-std-net", "dep:git2", "dep:reqwest", "dep:pathdiff", "dep:semver"]
 
 [lints]
 workspace = true
@@ -83,3 +83,9 @@ zip = { optional = true, version = "5.1", default-features = false, features = [
 	"deflate64",
 	"zstd"
 ] }
+
+### Installer
+git2 = { optional = true, version = "0.20", default-features = false }
+reqwest = { optional = true, version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+pathdiff = { optional = true, version = "0.2" }
+semver = { optional = true, version = "1.0" }

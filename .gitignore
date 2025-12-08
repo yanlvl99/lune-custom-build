@@ -9,6 +9,8 @@
 /out
 /target
 /staging
+/docs-fork
+/lune_packages
 
 /**/bin
 /**/out
