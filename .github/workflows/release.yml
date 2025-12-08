@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
     name: Build ${{ matrix.target }}
@@ -17,25 +20,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: lune.exe
             archive: lune-windows-x86_64.zip
 
-          # Linux (glibc)
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: lune
             archive: lune-linux-x86_64.tar.gz
 
-          # macOS Intel
           - os: macos-13
             target: x86_64-apple-darwin
             artifact: lune
             archive: lune-macos-x86_64.tar.gz
 
-          # macOS Apple Silicon
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: lune
@@ -71,12 +70,78 @@ jobs:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
+  msi:
+    name: Build Windows MSI Installer
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: lune-windows-x86_64.zip
+          path: installer/
+
+      - name: Extract exe
+        shell: pwsh
+        run: |
+          Expand-Archive -Path installer/lune-windows-x86_64.zip -DestinationPath installer/
+          Copy-Item assets/logo/no-tilt.ico installer/lune.ico
+
+      - name: Create license.rtf
+        shell: pwsh
+        run: |
+          $content = @"
+          {\rtf1\ansi\deff0 {\fonttbl {\f0 Arial;}}
+          \f0\fs20 Lune Custom Build is licensed under the Mozilla Public License 2.0.\par
+          \par
+          See https://www.mozilla.org/en-US/MPL/2.0/ for full license text.
+          }
+          "@
+          Set-Content -Path installer/license.rtf -Value $content
+
+      - name: Create banner images
+        shell: pwsh
+        run: |
+          # Create simple placeholder images (493x58 and 493x312)
+          Add-Type -AssemblyName System.Drawing
+          $banner = New-Object System.Drawing.Bitmap 493, 58
+          $g = [System.Drawing.Graphics]::FromImage($banner)
+          $g.Clear([System.Drawing.Color]::FromArgb(30, 30, 46))
+          $g.Dispose()
+          $banner.Save("installer/banner.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+          $banner.Dispose()
+
+          $dialog = New-Object System.Drawing.Bitmap 493, 312
+          $g = [System.Drawing.Graphics]::FromImage($dialog)
+          $g.Clear([System.Drawing.Color]::FromArgb(30, 30, 46))
+          $g.Dispose()
+          $dialog.Save("installer/dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+          $dialog.Dispose()
+
+      - name: Install WiX
+        run: dotnet tool install --global wix
+
+      - name: Build MSI
+        shell: pwsh
+        working-directory: installer
+        run: |
+          wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: lune-installer.msi
+          path: installer/lune-installer.msi
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, msi]
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -95,10 +160,14 @@ jobs:
             A standalone Luau runtime for backend and game-server development.
 
             ### Downloads
-            - **Windows**: `lune-windows-x86_64.zip`
-            - **Linux**: `lune-linux-x86_64.tar.gz`
-            - **macOS Intel**: `lune-macos-x86_64.tar.gz`
-            - **macOS ARM**: `lune-macos-aarch64.tar.gz`
+
+            | Platform | File |
+            |----------|------|
+            | **Windows Installer** | `lune-installer.msi` (recommended) |
+            | Windows ZIP | `lune-windows-x86_64.zip` |
+            | Linux | `lune-linux-x86_64.tar.gz` |
+            | macOS Intel | `lune-macos-x86_64.tar.gz` |
+            | macOS ARM | `lune-macos-aarch64.tar.gz` |
 
             ### New Features
             - Package Manager (`--init`, `--install`)

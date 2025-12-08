@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Lune Custom Build"
+           Manufacturer="yanlvl99"
+           Version="0.10.5"
+           UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
+           Language="1033"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Feature Id="MainFeature" Title="Lune Custom Build" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="PathEnvVar" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Lune">
+        <Component Id="LuneExe" Guid="*">
+          <File Id="LuneExeFile" Source="lune.exe" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <ComponentRef Id="LuneExe" />
+    </ComponentGroup>
+
+    <!-- Add to PATH -->
+    <Component Id="PathEnvVar" Directory="INSTALLFOLDER" Guid="*">
+      <Environment Id="PATH"
+                   Name="PATH"
+                   Value="[INSTALLFOLDER]"
+                   Permanent="no"
+                   Part="last"
+                   Action="set"
+                   System="yes" />
+    </Component>
+
+    <!-- UI -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <UIRef Id="WixUI_InstallDir" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+
+    <!-- Icon -->
+    <Icon Id="LuneIcon" SourceFile="lune.ico" />
+    <Property Id="ARPPRODUCTICON" Value="LuneIcon" />
+    <Property Id="ARPHELPLINK" Value="https://yanlvl99.github.io/lune-custom-build-doc/" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/yanlvl99/lune-custom-build" />
+
+  </Package>
+</Wix>
