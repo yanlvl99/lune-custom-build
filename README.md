@@ -1,6 +1,6 @@
-<p align="center">
+<p align="right">
   <a href="https://yanlvl99.github.io/lune-custom-build-doc/">
-    <img src="assets/logo/tilt.png" alt="Lune Custom Build" width="600" />
+    <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="300" />
   </a>
 </p>
 
