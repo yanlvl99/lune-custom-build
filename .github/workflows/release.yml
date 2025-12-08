@@ -128,7 +128,7 @@ jobs:
         shell: pwsh
         working-directory: installer
         run: |
-          wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext
+          wix build lune.wxs -o lune-installer.msi
 
       - name: Upload MSI
         uses: actions/upload-artifact@v4
