@@ -33,3 +33,6 @@ luneTypes.d.luau
 scripts/brick_color.rs
 scripts/font_enum_map.rs
 scripts/physical_properties_enum_map.rs
+
+# zip
+lune_windows-x86_64.zip

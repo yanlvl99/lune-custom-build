@@ -30,7 +30,7 @@ jobs:
             artifact: lune
             archive: lune-linux-x86_64.tar.gz
 
-          - os: macos-13
+          - os: macos-14
             target: x86_64-apple-darwin
             artifact: lune
             archive: lune-macos-x86_64.tar.gz
