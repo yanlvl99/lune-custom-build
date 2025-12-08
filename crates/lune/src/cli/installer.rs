@@ -15,6 +15,7 @@ const REGISTRY_BRANCH: &str = "main";
 /// Package manifest from the registry.
 #[derive(Debug, Deserialize)]
 struct PackageManifest {
+    #[allow(dead_code)]
     name: String,
     #[allow(dead_code)]
     description: Option<String>,

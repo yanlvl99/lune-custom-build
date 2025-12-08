@@ -8,12 +8,9 @@ pub(crate) mod installer;
 pub(crate) mod list;
 pub(crate) mod repl;
 pub(crate) mod run;
-pub(crate) mod setup;
 pub(crate) mod utils;
 
-pub use self::{
-    build::BuildCommand, list::ListCommand, repl::ReplCommand, run::RunCommand, setup::SetupCommand,
-};
+pub use self::{build::BuildCommand, list::ListCommand, repl::ReplCommand, run::RunCommand};
 
 /// Lune Custom Build - A standalone Luau runtime for backend/game-server development
 #[derive(Parser, Debug, Clone)]
