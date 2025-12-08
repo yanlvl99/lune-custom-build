@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Lune Custom Build"
            Manufacturer="yanlvl99"
            Version="0.10.6"
@@ -36,6 +36,11 @@
     <Property Id="ARPPRODUCTICON" Value="LuneIcon" />
     <Property Id="ARPHELPLINK" Value="https://yanlvl99.github.io/lune-custom-build-doc/" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/yanlvl99/lune-custom-build" />
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
 
   </Package>
 </Wix>
