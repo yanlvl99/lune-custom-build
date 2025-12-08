@@ -36,8 +36,7 @@ impl RegistryClient {
         // Parse source: "github:user/repo" -> fetch from registry
         let package_name = source
             .strip_prefix("github:")
-            .map(|s| s.replace('/', "_"))
-            .unwrap_or_else(|| source.to_owned());
+            .map_or_else(|| source.to_owned(), |s| s.replace('/', "_"));
 
         let url = format!("{}/{}.json", self.base_url, package_name);
 

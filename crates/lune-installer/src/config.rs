@@ -38,7 +38,7 @@ pub struct PackageSpec {
 
 impl LuneConfig {
     /// Parse config from JSON string.
-    pub fn from_str(json: &str) -> Result<Self, serde_json::Error> {
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
 }

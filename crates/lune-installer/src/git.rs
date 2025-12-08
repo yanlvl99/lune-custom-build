@@ -39,7 +39,11 @@ pub fn list_remote_tags(url: &str) -> Result<Vec<String>, InstallError> {
         .list()
         .map_err(InstallError::from)?
         .iter()
-        .filter_map(|head| head.name().strip_prefix("refs/tags/").map(|s| s.to_owned()))
+        .filter_map(|head| {
+            head.name()
+                .strip_prefix("refs/tags/")
+                .map(std::borrow::ToOwned::to_owned)
+        })
         .collect();
 
     Ok(tags)

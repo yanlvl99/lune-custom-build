@@ -81,7 +81,7 @@ impl PackageInstaller {
             .await
             .map_err(InstallError::Io)?;
 
-        serde_json::from_str(&content).map_err(|e| InstallError::InvalidConfig {
+        LuneConfig::from_json(&content).map_err(|e| InstallError::InvalidConfig {
             path: self.config_path.to_string(),
             reason: e.to_string(),
         })

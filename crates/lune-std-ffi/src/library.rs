@@ -1,6 +1,7 @@
 //! Native library wrapper for loading DLLs/SOs.
 
 use std::ffi::CString;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use libloading::{Library, Symbol};
@@ -31,9 +32,11 @@ impl NativeLibrary {
     unsafe fn get_symbol<T>(&self, name: &str) -> LuaResult<Symbol<T>> {
         let cname = CString::new(name).map_err(|_| LuaError::external("Invalid symbol name"))?;
 
-        self.library
-            .get(cname.as_bytes_with_nul())
-            .map_err(|e| LuaError::external(format!("Symbol '{}' not found: {}", name, e)))
+        unsafe {
+            self.library
+                .get(cname.as_bytes_with_nul())
+                .map_err(|e| LuaError::external(format!("Symbol '{name}' not found: {e}")))
+        }
     }
 }
 
