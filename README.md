@@ -1,20 +1,18 @@
-<p align="right">
-  <a href="https://yanlvl99.github.io/lune-custom-build-doc/">
-    <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="300" />
-  </a>
-</p>
-
-<h1 align="left">Lune Custom Build</h1>
-
-<p align="left">
-  A standalone Luau runtime for <b>backend</b> and <b>game-server</b> development
-</p>
-
-<p align="left">
-  <a href="https://github.com/yanlvl99/lune-custom-build/releases">Download</a>
-  ·
-  <a href="https://yanlvl99.github.io/lune-custom-build-doc/">Documentation</a>
-</p>
+<table>
+  <tr>
+    <td>
+      <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="300" />
+    </td>
+    <td>
+      <h1>Lune Custom Build</h1>
+      <p>A standalone Luau runtime for <b>backend</b> and <b>game-server</b> development</p>
+      <p>
+        <a href="https://github.com/yanlvl99/lune-custom-build/releases">Download</a> ·
+        <a href="https://yanlvl99.github.io/lune-custom-build-doc/">Documentation</a>
+      </p>
+    </td>
+  </tr>
+</table>
 
 ---
 
