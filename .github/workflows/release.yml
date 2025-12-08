@@ -50,7 +50,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} 2>&1
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -157,8 +157,6 @@ jobs:
         with:
           name: "Lune Custom Build ${{ github.ref_name }}"
           body: |
-            ## Lune Custom Build ${{ github.ref_name }}
-
             A standalone Luau runtime for backend and game-server development.
 
             ### Downloads
