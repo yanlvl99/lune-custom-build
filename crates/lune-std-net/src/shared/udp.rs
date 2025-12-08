@@ -22,8 +22,7 @@ impl UdpSocket {
 
         let bound_addr = socket
             .local_addr()
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| addr.to_owned());
+            .map_or_else(|_| addr.to_owned(), |a| a.to_string());
 
         let async_socket = Async::new(socket).into_lua_err()?;
 
@@ -139,6 +138,7 @@ impl LuaUserData for UdpSocket {
 }
 
 /// Bind a new UDP socket.
+#[allow(dead_code, clippy::unused_async)]
 pub async fn net_udp_bind(_: Lua, addr: String) -> LuaResult<UdpSocket> {
     // Run bind in blocking context since it might do DNS
     future::block_on(async { UdpSocket::bind(&addr) })

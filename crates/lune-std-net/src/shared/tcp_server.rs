@@ -85,8 +85,7 @@ impl TcpServer {
 
         let local_addr = listener
             .local_addr()
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| addr.to_owned());
+            .map_or_else(|_| addr.to_owned(), |a| a.to_string());
 
         Ok(Self {
             listener: Arc::new(listener),
@@ -147,6 +146,7 @@ impl LuaUserData for TcpServer {
 }
 
 /// Create a TCP server listening on the given address.
+#[allow(dead_code)]
 pub async fn net_tcp_listen(_: Lua, addr: String) -> LuaResult<TcpServer> {
     TcpServer::listen(&addr).await
 }
