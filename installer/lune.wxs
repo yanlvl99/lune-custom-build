@@ -5,13 +5,12 @@
   
   <Package Name="Lune Custom Build"
            Manufacturer="yanlvl99"
-           Version="0.10.5"
+           Version="0.10.6"
            UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
            Language="1033"
            Scope="perMachine"
            InstallerVersion="500"
-           Compressed="yes"
-           Comments="Lune Custom Build - Lua Runtime Environment">
+           Compressed="yes">
 
     <!-- Configurações de upgrade -->
     <MajorUpgrade 
