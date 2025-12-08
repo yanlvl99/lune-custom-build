@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" 
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
-     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   
   <Package Name="Lune Custom Build"
            Manufacturer="yanlvl99"
-           Version="0.10.6"
+           Version="0.10.5"
            UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
            Language="1033"
            Scope="perMachine"
@@ -40,8 +39,6 @@
       <Directory Id="INSTALLFOLDER" Name="Lune">
         <!-- Diretório para documentação -->
         <Directory Id="DOCFOLDER" Name="docs" />
-        <!-- Diretório para exemplos -->
-        <Directory Id="EXAMPLESFOLDER" Name="examples" />
       </Directory>
     </StandardDirectory>
 
@@ -56,25 +53,33 @@
       <File Id="LuneExeFile" 
             Source="lune.exe" 
             KeyPath="yes"
-            Checksum="yes">
-        <!-- Associação de arquivos .luau -->
-        <ProgId Id="LuneScript" Description="Lune Script File" Icon="LuneIcon">
-          <Extension Id="luau" ContentType="text/plain">
-            <Verb Id="open" Command="Run with Lune" Argument='"%1" %*' />
-          </Extension>
-        </ProgId>
-      </File>
+            Checksum="yes" />
       
       <!-- Chave de registro para identificação do software -->
       <RegistryKey Root="HKLM" Key="Software\yanlvl99\Lune">
         <RegistryValue Type="string" Name="InstallPath" Value="[INSTALLFOLDER]" KeyPath="no" />
-        <RegistryValue Type="string" Name="Version" Value="0.10.6" KeyPath="no" />
+        <RegistryValue Type="string" Name="Version" Value="0.10.5" KeyPath="no" />
       </RegistryKey>
     </Component>
 
-    <!-- Componente - Variável de ambiente PATH (condicional) -->
+    <!-- Componente - Associação de arquivos .luau -->
+    <Component Id="FileAssociation" Directory="INSTALLFOLDER" Guid="F6789ABC-DEF0-1234-5678-90ABCDEF1234">
+      <ProgId Id="LuneScript" Description="Lune Script File" Icon="LuneIcon">
+        <Extension Id="luau" ContentType="text/plain">
+          <Verb Id="open" Command="Run with Lune" Argument='"%1" %*' />
+        </Extension>
+      </ProgId>
+      <RegistryValue Root="HKCU" 
+                     Key="Software\yanlvl99\Lune" 
+                     Name="FileAssociation" 
+                     Type="integer" 
+                     Value="1" 
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- Componente - Variável de ambiente PATH -->
     <Component Id="PathEnvVar" Directory="INSTALLFOLDER" Guid="B2C3D4E5-F678-90AB-CDEF-123456789ABC">
-      <Condition>ADDTOPATH = "1"</Condition>
+      <Condition><![CDATA[ADDTOPATH = "1"]]></Condition>
       <Environment Id="PATH"
                    Name="PATH"
                    Value="[INSTALLFOLDER]"
@@ -82,11 +87,17 @@
                    Part="last"
                    Action="set"
                    System="yes" />
+      <RegistryValue Root="HKCU" 
+                     Key="Software\yanlvl99\Lune" 
+                     Name="PathAdded" 
+                     Type="integer" 
+                     Value="1" 
+                     KeyPath="yes" />
     </Component>
 
-    <!-- Componente - Atalho na Área de Trabalho (condicional) -->
+    <!-- Componente - Atalho na Área de Trabalho -->
     <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="C3D4E5F6-7890-ABCD-EF12-34567890ABCD">
-      <Condition>CREATEDESKTOPSHORTCUT = "1"</Condition>
+      <Condition><![CDATA[CREATEDESKTOPSHORTCUT = "1"]]></Condition>
       <Shortcut Id="DesktopShortcut"
                 Name="Lune Custom Build"
                 Description="Lune Custom Build - Lua Runtime"
@@ -101,9 +112,9 @@
                      KeyPath="yes" />
     </Component>
 
-    <!-- Componente - Atalho no Menu Iniciar (condicional) -->
+    <!-- Componente - Atalho no Menu Iniciar -->
     <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="D4E5F678-90AB-CDEF-1234-567890ABCDEF">
-      <Condition>CREATESTARTMENUSHORTCUT = "1"</Condition>
+      <Condition><![CDATA[CREATESTARTMENUSHORTCUT = "1"]]></Condition>
       <Shortcut Id="ApplicationStartMenuShortcut"
                 Name="Lune Custom Build"
                 Description="Lune Custom Build - Lua Runtime"
@@ -113,7 +124,7 @@
       
       <!-- Atalho para documentação -->
       <Shortcut Id="DocumentationShortcut"
-                Name="Lune | Lune Custom Build"
+                Name="Lune Documentation"
                 Description="Lune Custom Build Documentation"
                 Target="https://yanlvl99.github.io/lune-custom-build-doc/" />
       
@@ -138,7 +149,6 @@
     <Component Id="Documentation" Directory="DOCFOLDER" Guid="E5F67890-ABCD-EF12-3456-7890ABCDEF12">
       <File Id="ReadmeFile" Source="README.md" KeyPath="yes" />
       <File Id="LicenseFile" Source="LICENSE.txt" />
-      <File Id="ChangelogFile" Source="CHANGELOG.md" />
     </Component>
 
     <!-- Feature principal -->
@@ -150,6 +160,7 @@
              ConfigurableDirectory="INSTALLFOLDER"
              AllowAdvertise="no">
       <ComponentRef Id="LuneExe" />
+      <ComponentRef Id="FileAssociation" />
       <ComponentRef Id="PathEnvVar" />
       <ComponentRef Id="Documentation" />
     </Feature>
@@ -168,7 +179,7 @@
     <Icon Id="LuneIcon" SourceFile="lune.ico" />
 
     <!-- Interface personalizada -->
-    <ui:WixUI Id="WixUI_FeatureTree" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     
     <!-- Variáveis de interface -->
     <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
@@ -178,28 +189,18 @@
     <!-- Diálogo customizado para opções -->
     <UI>
       <Dialog Id="CustomizeDlg" Width="370" Height="270" Title="[ProductName] Setup - Opções de Instalação">
-        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
-          <Text>{\WixUI_Font_Title}Opções de Instalação</Text>
-        </Control>
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Opções de Instalação" />
         
-        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
-          <Text>Personalize sua instalação do Lune</Text>
-        </Control>
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Personalize sua instalação do Lune" />
         
         <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
         <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
         
-        <Control Id="AddToPathCheckbox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="ADDTOPATH" CheckBoxValue="1">
-          <Text>Adicionar Lune ao PATH do sistema</Text>
-        </Control>
+        <Control Id="AddToPathCheckbox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="ADDTOPATH" CheckBoxValue="1" Text="Adicionar Lune ao PATH do sistema" />
         
-        <Control Id="DesktopShortcutCheckbox" Type="CheckBox" X="20" Y="85" Width="330" Height="18" Property="CREATEDESKTOPSHORTCUT" CheckBoxValue="1">
-          <Text>Criar atalho na Área de Trabalho</Text>
-        </Control>
+        <Control Id="DesktopShortcutCheckbox" Type="CheckBox" X="20" Y="85" Width="330" Height="18" Property="CREATEDESKTOPSHORTCUT" CheckBoxValue="1" Text="Criar atalho na Área de Trabalho" />
         
-        <Control Id="StartMenuShortcutCheckbox" Type="CheckBox" X="20" Y="110" Width="330" Height="18" Property="CREATESTARTMENUSHORTCUT" CheckBoxValue="1">
-          <Text>Criar atalhos no Menu Iniciar</Text>
-        </Control>
+        <Control Id="StartMenuShortcutCheckbox" Type="CheckBox" X="20" Y="110" Width="330" Height="18" Property="CREATESTARTMENUSHORTCUT" CheckBoxValue="1" Text="Criar atalhos no Menu Iniciar" />
         
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         
@@ -213,8 +214,8 @@
       <!-- Sequência de diálogos -->
       <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" />
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg" />
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CustomizeDlg" />
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="CustomizeDlg" />
     </UI>
 
   </Package>
