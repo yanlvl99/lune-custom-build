@@ -1,9 +1,9 @@
-<table>
+<table align="center" width="100%">
   <tr>
-    <td>
+    <td align="center" width="40%">
       <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="300" />
     </td>
-    <td>
+    <td align="center" width="60%">
       <h1>Lune Custom Build</h1>
       <p>A standalone Luau runtime for <b>backend</b> and <b>game-server</b> development</p>
       <p>
