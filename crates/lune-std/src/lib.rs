@@ -21,6 +21,10 @@ pub use self::library::LuneStandardLibrary;
     Errors when out of memory, or if *default* Lua globals are missing.
 */
 pub fn inject_globals(lua: Lua) -> LuaResult<()> {
+    // Inject lune-utils globals (uuid, math extensions, warn)
+    lune_utils::globals::inject_globals(&lua)?;
+
+    // Inject lune-std globals
     for global in LuneStandardGlobal::ALL {
         lua.globals()
             .set(global.name(), global.create(lua.clone())?)?;

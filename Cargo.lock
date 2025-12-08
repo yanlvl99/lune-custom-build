@@ -1700,6 +1700,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
 
 [[package]]
+name = "libffi"
+version = "4.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0feebbe0ccd382a2790f78d380540500d7b78ed7a3498b68fcfbc1593749a94"
+dependencies = [
+ "libc",
+ "libffi-sys",
+]
+
+[[package]]
+name = "libffi-sys"
+version = "3.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90c6c6e17136d4bc439d43a2f3c6ccf0731cccc016d897473a29791d3c2160c3"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "libgit2-sys"
 version = "0.18.3+1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1820,7 +1839,7 @@ dependencies = [
 
 [[package]]
 name = "lune"
-version = "0.10.4"
+version = "0.10.5"
 dependencies = [
  "anyhow",
  "async-fs",
@@ -1889,6 +1908,7 @@ dependencies = [
  "async-fs",
  "async-lock",
  "lune-std-datetime",
+ "lune-std-ffi",
  "lune-std-fs",
  "lune-std-luau",
  "lune-std-net",
@@ -1896,6 +1916,7 @@ dependencies = [
  "lune-std-regex",
  "lune-std-roblox",
  "lune-std-serde",
+ "lune-std-sql",
  "lune-std-stdio",
  "lune-std-task",
  "lune-utils",
@@ -1920,6 +1941,7 @@ dependencies = [
 name = "lune-std-ffi"
 version = "0.3.4"
 dependencies = [
+ "libffi",
  "libloading",
  "lune-utils",
  "mlua",
@@ -2045,7 +2067,7 @@ dependencies = [
 
 [[package]]
 name = "lune-std-sql"
-version = "0.1.0"
+version = "0.3.4"
 dependencies = [
  "lune-utils",
  "mlua",

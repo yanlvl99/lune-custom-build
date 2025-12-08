@@ -40,7 +40,13 @@ export type NativeLibrary = {
 	path: string,
 	getSymbol: (self: NativeLibrary, name: string) -> any,
 	hasSymbol: (self: NativeLibrary, name: string) -> boolean,
-	call: (self: NativeLibrary, name: string, returnType: CType, argTypes: { CType }, ...any) -> any,
+	call: (
+		self: NativeLibrary,
+		name: string,
+		returnType: CType,
+		argTypes: { CType },
+		...any
+	) -> any,
 	callPtr: (self: NativeLibrary, ptr: any, returnType: CType, argTypes: { CType }, ...any) -> any,
 	callInt: (self: NativeLibrary, name: string) -> number,
 	callDouble: (self: NativeLibrary, name: string) -> number,

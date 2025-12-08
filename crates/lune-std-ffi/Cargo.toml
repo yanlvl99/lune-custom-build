@@ -6,11 +6,16 @@ license = "MPL-2.0"
 repository = "https://github.com/yanlvl99/lune-custom-build"
 description = "FFI (Foreign Function Interface) library for Lune - load native DLLs/SOs"
 
-[lints]
-workspace = true
+[lints.clippy]
+# FFI code naturally requires many casts and unsafe operations
+pedantic = "allow"
+nursery = "allow"
+all = "warn"
 
 [dependencies]
 mlua = { version = "0.11", features = ["luau"] }
 lune-utils = { version = "0.3.4", path = "../lune-utils" }
 thiserror = "2.0"
 libloading = "0.8"
+libffi = "4.0"
+

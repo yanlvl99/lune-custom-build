@@ -9,6 +9,7 @@ use mlua::prelude::*;
 #[rustfmt::skip]
 pub enum LuneStandardLibrary {
     #[cfg(feature = "datetime")] DateTime,
+    #[cfg(feature = "ffi")]      Ffi,
     #[cfg(feature = "fs")]       Fs,
     #[cfg(feature = "luau")]     Luau,
     #[cfg(feature = "net")]      Net,
@@ -16,6 +17,7 @@ pub enum LuneStandardLibrary {
     #[cfg(feature = "process")]  Process,
     #[cfg(feature = "regex")]    Regex,
     #[cfg(feature = "serde")]    Serde,
+    #[cfg(feature = "sql")]      Sql,
     #[cfg(feature = "stdio")]    Stdio,
     #[cfg(feature = "roblox")]   Roblox,
 }
@@ -27,6 +29,7 @@ impl LuneStandardLibrary {
     #[rustfmt::skip]
     pub const ALL: &'static [Self] = &[
         #[cfg(feature = "datetime")] Self::DateTime,
+        #[cfg(feature = "ffi")]      Self::Ffi,
         #[cfg(feature = "fs")]       Self::Fs,
         #[cfg(feature = "luau")]     Self::Luau,
         #[cfg(feature = "net")]      Self::Net,
@@ -34,6 +37,7 @@ impl LuneStandardLibrary {
         #[cfg(feature = "process")]  Self::Process,
         #[cfg(feature = "regex")]    Self::Regex,
         #[cfg(feature = "serde")]    Self::Serde,
+        #[cfg(feature = "sql")]      Self::Sql,
         #[cfg(feature = "stdio")]    Self::Stdio,
         #[cfg(feature = "roblox")]   Self::Roblox,
     ];
@@ -47,6 +51,7 @@ impl LuneStandardLibrary {
     pub fn name(&self) -> &'static str {
         match self {
             #[cfg(feature = "datetime")] Self::DateTime => "datetime",
+            #[cfg(feature = "ffi")]      Self::Ffi      => "ffi",
             #[cfg(feature = "fs")]       Self::Fs       => "fs",
             #[cfg(feature = "luau")]     Self::Luau     => "luau",
             #[cfg(feature = "net")]      Self::Net      => "net",
@@ -54,6 +59,7 @@ impl LuneStandardLibrary {
             #[cfg(feature = "process")]  Self::Process  => "process",
             #[cfg(feature = "regex")]    Self::Regex    => "regex",
             #[cfg(feature = "serde")]    Self::Serde    => "serde",
+            #[cfg(feature = "sql")]      Self::Sql      => "sql",
             #[cfg(feature = "stdio")]    Self::Stdio    => "stdio",
             #[cfg(feature = "roblox")]   Self::Roblox   => "roblox",
 
@@ -70,6 +76,7 @@ impl LuneStandardLibrary {
     pub fn typedefs(&self) -> String {
     	match self {
             #[cfg(feature = "datetime")] Self::DateTime => lune_std_datetime::typedefs(),
+            #[cfg(feature = "ffi")]      Self::Ffi      => lune_std_ffi::typedefs(),
             #[cfg(feature = "fs")]       Self::Fs       => lune_std_fs::typedefs(),
             #[cfg(feature = "luau")]     Self::Luau     => lune_std_luau::typedefs(),
             #[cfg(feature = "net")]      Self::Net      => lune_std_net::typedefs(),
@@ -77,6 +84,7 @@ impl LuneStandardLibrary {
             #[cfg(feature = "process")]  Self::Process  => lune_std_process::typedefs(),
             #[cfg(feature = "regex")]    Self::Regex    => lune_std_regex::typedefs(),
             #[cfg(feature = "serde")]    Self::Serde    => lune_std_serde::typedefs(),
+            #[cfg(feature = "sql")]      Self::Sql      => lune_std_sql::typedefs(),
             #[cfg(feature = "stdio")]    Self::Stdio    => lune_std_stdio::typedefs(),
             #[cfg(feature = "roblox")]   Self::Roblox   => lune_std_roblox::typedefs(),
 
@@ -97,6 +105,7 @@ impl LuneStandardLibrary {
         let mod_lua = lua.clone();
         let res: LuaResult<LuaTable> = match self {
             #[cfg(feature = "datetime")] Self::DateTime => lune_std_datetime::module(mod_lua),
+            #[cfg(feature = "ffi")]      Self::Ffi      => lune_std_ffi::module(mod_lua),
             #[cfg(feature = "fs")]       Self::Fs       => lune_std_fs::module(mod_lua),
             #[cfg(feature = "luau")]     Self::Luau     => lune_std_luau::module(mod_lua),
             #[cfg(feature = "net")]      Self::Net      => lune_std_net::module(mod_lua),
@@ -104,6 +113,7 @@ impl LuneStandardLibrary {
             #[cfg(feature = "process")]  Self::Process  => lune_std_process::module(mod_lua),
             #[cfg(feature = "regex")]    Self::Regex    => lune_std_regex::module(mod_lua),
             #[cfg(feature = "serde")]    Self::Serde    => lune_std_serde::module(mod_lua),
+            #[cfg(feature = "sql")]      Self::Sql      => lune_std_sql::module(mod_lua),
             #[cfg(feature = "stdio")]    Self::Stdio    => lune_std_stdio::module(mod_lua),
             #[cfg(feature = "roblox")]   Self::Roblox   => lune_std_roblox::module(mod_lua),
 
@@ -126,6 +136,7 @@ impl FromStr for LuneStandardLibrary {
         let low = s.trim().to_ascii_lowercase();
         Ok(match low.as_str() {
             #[cfg(feature = "datetime")] "datetime" => Self::DateTime,
+            #[cfg(feature = "ffi")]      "ffi"      => Self::Ffi,
             #[cfg(feature = "fs")]       "fs"       => Self::Fs,
             #[cfg(feature = "luau")]     "luau"     => Self::Luau,
             #[cfg(feature = "net")]      "net"      => Self::Net,
@@ -133,6 +144,7 @@ impl FromStr for LuneStandardLibrary {
             #[cfg(feature = "process")]  "process"  => Self::Process,
             #[cfg(feature = "regex")]    "regex"    => Self::Regex,
             #[cfg(feature = "serde")]    "serde"    => Self::Serde,
+            #[cfg(feature = "sql")]      "sql"      => Self::Sql,
             #[cfg(feature = "stdio")]    "stdio"    => Self::Stdio,
             #[cfg(feature = "roblox")]   "roblox"   => Self::Roblox,
 
