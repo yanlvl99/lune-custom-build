@@ -4,13 +4,13 @@
   </a>
 </p>
 
-<h1 align="center">Lune Custom Build</h1>
+<h1 align="right">Lune Custom Build</h1>
 
-<p align="center">
+<p align="right">
   A standalone Luau runtime for <b>backend</b> and <b>game-server</b> development
 </p>
 
-<p align="center">
+<p align="right">
   <a href="https://github.com/yanlvl99/lune-custom-build/releases">Download</a>
   ·
   <a href="https://yanlvl99.github.io/lune-custom-build-doc/">Documentation</a>
