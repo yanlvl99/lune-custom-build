@@ -7,7 +7,10 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use console::style;
+use directories::UserDirs;
 use serde::{Deserialize, Serialize};
+
+use lune_std::LuneStandardLibrary;
 
 const REGISTRY_REPO: &str = "yanlvl99/lune-custom-build";
 const REGISTRY_BRANCH: &str = "main";
@@ -44,9 +47,43 @@ pub fn run_init() -> Result<ExitCode> {
     let config_path = cwd.join("lune.config.json");
     let luaurc_path = cwd.join(".luaurc");
 
-    // Get version for typedefs path
+    // Get version and user home for typedefs path
     let version = env!("CARGO_PKG_VERSION");
+    let user_dirs = UserDirs::new().context("Failed to find user home directory")?;
+    let typedefs_dir = user_dirs
+        .home_dir()
+        .join(".lune")
+        .join(".typedefs")
+        .join(version);
     let typedefs_path = format!("~/.lune/.typedefs/{}/", version);
+
+    // Generate type definitions
+    if !typedefs_dir.exists() {
+        std::fs::create_dir_all(&typedefs_dir)?;
+    }
+
+    let mut generated_count = 0;
+    for lib in LuneStandardLibrary::ALL {
+        let typedef_file = typedefs_dir.join(format!("{}.luau", lib.name()));
+        if !typedef_file.exists() {
+            std::fs::write(&typedef_file, lib.typedefs())?;
+            generated_count += 1;
+        }
+    }
+
+    if generated_count > 0 {
+        println!(
+            "{} Generated {} type definition(s) in {}",
+            style("[OK]").green(),
+            generated_count,
+            typedefs_dir.display()
+        );
+    } else {
+        println!(
+            "{} Type definitions already exist",
+            style("[SKIP]").yellow()
+        );
+    }
 
     // Create lune.config.json
     if config_path.exists() {
