@@ -82,55 +82,94 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lune-windows-x86_64.zip
-          path: installer/
+          path: installer_temp/
 
-      - name: Extract exe
+      - name: Prepare Binary and Icon
         shell: pwsh
         run: |
-          Expand-Archive -Path installer/lune-windows-x86_64.zip -DestinationPath installer/
-          Copy-Item assets/logo/no-tilt.ico installer/lune.ico
-
-      - name: Create license.rtf
-        shell: pwsh
-        run: |
-          $content = @"
-          {\rtf1\ansi\deff0 {\fonttbl {\f0 Arial;}}
-          \f0\fs20 Lune Custom Build is licensed under the Mozilla Public License 2.0.\par
-          \par
-          See https://www.mozilla.org/en-US/MPL/2.0/ for full license text.
+          # Extrai o ZIP do build
+          Expand-Archive -Path installer_temp/lune-windows-x86_64.zip -DestinationPath installer_temp/
+          
+          # Move o executável para a pasta installer
+          Copy-Item installer_temp/lune.exe -Destination installer/lune.exe -Force
+          
+          # Move o ícone (se existir no repo)
+          if (Test-Path "assets/logo/no-tilt.ico") {
+            Copy-Item assets/logo/no-tilt.ico -Destination installer/lune.ico -Force
           }
-          "@
-          Set-Content -Path installer/license.rtf -Value $content
 
-      - name: Create banner images
+      - name: Generate Assets (Docs, License & Images)
         shell: pwsh
+        working-directory: installer
         run: |
-          # Create simple placeholder images (493x58 and 493x312)
+          # === 1. CORREÇÃO DO README E LICENSE ===
+          # Cria a pasta docs dentro de installer
+          New-Item -ItemType Directory -Path "docs" -Force | Out-Null
+          
+          # Copia README.md da RAIZ (..) para installer/docs
+          if (Test-Path "../README.md") {
+            Copy-Item "../README.md" -Destination "docs/README.md" -Force
+          } else {
+            Set-Content "docs/README.md" "# Lune Custom Build" # Fallback para segurança
+          }
+
+          # Copia LICENSE da RAIZ (..) para installer/docs
+          if (Test-Path "../LICENSE") {
+            Copy-Item "../LICENSE" -Destination "docs/LICENSE.txt" -Force
+          } else {
+             Set-Content "docs/LICENSE.txt" "MPL 2.0" # Fallback
+          }
+
+          # === 2. CRIAR LICENÇA RTF (PARA O INSTALADOR) ===
+          $rtfHeader = "{\rtf1\ansi\deff0\nouicompat{\fonttbl{\f0\fnil\fcharset0 Segoe UI;}}\viewkind4\uc1 \pard\sa200\sl276\slmult1\f0\fs20\lang22 "
+          $licenseText = @"
+          LUNE CUSTOM BUILD - END USER LICENSE AGREEMENT
+          
+          This software is licensed under the Mozilla Public License 2.0.
+          
+          1. Definitions
+          1.1. "Contributor" means each individual or legal entity that creates, contributes to the creation of, or owns Covered Software.
+          
+          (Standard MPL 2.0 Terms Apply - See https://mozilla.org/MPL/2.0/)
+          "@
+          $finalRtf = $rtfHeader + ($licenseText -replace "`n", "\par ") + "}"
+          Set-Content "license.rtf" $finalRtf -Encoding ASCII
+
+          # === 3. CRIAR IMAGENS (ROXO CLEAN) ===
           Add-Type -AssemblyName System.Drawing
+          $purple = [System.Drawing.Color]::FromArgb(255, 130, 80, 220)
+          $brush = New-Object System.Drawing.SolidBrush($purple)
+
+          # Banner
           $banner = New-Object System.Drawing.Bitmap 493, 58
           $g = [System.Drawing.Graphics]::FromImage($banner)
-          $g.Clear([System.Drawing.Color]::FromArgb(30, 30, 46))
-          $g.Dispose()
-          $banner.Save("installer/banner.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
-          $banner.Dispose()
+          $g.Clear([System.Drawing.Color]::White)
+          $g.FillRectangle($brush, 478, 0, 15, 58)
+          $g.FillRectangle($brush, 0, 56, 493, 2)
+          $banner.Save("banner.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+          $g.Dispose(); $banner.Dispose()
 
+          # Dialog
           $dialog = New-Object System.Drawing.Bitmap 493, 312
-          $g = [System.Drawing.Graphics]::FromImage($dialog)
-          $g.Clear([System.Drawing.Color]::FromArgb(30, 30, 46))
-          $g.Dispose()
-          $dialog.Save("installer/dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
-          $dialog.Dispose()
+          $g2 = [System.Drawing.Graphics]::FromImage($dialog)
+          $g2.Clear([System.Drawing.Color]::White)
+          $g2.FillRectangle($brush, 0, 0, 164, 312)
+          $dialog.Save("dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+          $g2.Dispose(); $dialog.Dispose()
 
-      - name: Install WiX Tool
+      - name: Install WiX Toolset
         run: dotnet tool install --global wix
 
       - name: Build MSI
         shell: pwsh
         working-directory: installer
         run: |
-          wix extension add WixToolset.UI.wixext
-          wix extension list
-          wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext
+          # Instala as extensões necessárias
+          wix extension add WixToolset.UI.wixext --global
+          wix extension add WixToolset.Util.wixext --global
+          
+          # Compila o MSI
+          wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
 
       - name: Upload MSI
         uses: actions/upload-artifact@v4
@@ -168,13 +207,6 @@ jobs:
             | Linux | `lune-linux-x86_64.tar.gz` |
             | macOS Intel | `lune-macos-x86_64.tar.gz` |
             | macOS ARM | `lune-macos-aarch64.tar.gz` |
-
-            ### New Features
-            - Package Manager (`--init`, `--install`)
-            - SQL Database (`@lune/sql`)
-            - Extended Globals (`math.clamp`, `uuid.v4`, etc.)
-            - UDP/TCP Sockets
-            - FFI Support (`@lune/ffi`)
 
             ### Install with Rokit
             ```bash
