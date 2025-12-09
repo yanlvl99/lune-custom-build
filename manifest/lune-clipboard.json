@@ -1,1 +1,5 @@
-
+{
+    "name": "lune-clipboard",
+    "description": "Clipboard for Windows/Linux/Macos utilities for Luau scripts",
+    "repository": "https://github.com/yanlvl99/lune-clipboard.git"
+}
