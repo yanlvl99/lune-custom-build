@@ -1,7 +1,8 @@
-//! Package installer with git tag resolution.
+//! Package installer with zip download.
 //!
 //! Installs packages from the central registry to ./lune_packages/
 
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -9,6 +10,7 @@ use anyhow::{Context, Result};
 use console::style;
 use directories::UserDirs;
 use serde::{Deserialize, Serialize};
+use zip::ZipArchive;
 
 use lune_std::LuneStandardLibrary;
 
@@ -16,20 +18,74 @@ const REGISTRY_REPO: &str = "yanlvl99/lune-custom-build";
 const REGISTRY_BRANCH: &str = "main";
 
 /// Package manifest from the registry.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct PackageManifest {
-    #[allow(dead_code)]
     name: String,
-    #[allow(dead_code)]
+    #[serde(default)]
     description: Option<String>,
     repository: String,
+}
+
+/// Local package info (lune-pkg.json).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LunePkgInfo {
+    pub name: String,
+    pub version: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    pub repository: String,
+}
+
+/// Package entry with optional version lock.
+/// Supports both "pkg-name" and "pkg-name@1.0.0" formats
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(try_from = "String", into = "String")]
+pub struct PackageSpec {
+    pub name: String,
+    pub version: Option<String>,
+}
+
+impl TryFrom<String> for PackageSpec {
+    type Error = std::convert::Infallible;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        if let Some((name, version)) = s.split_once('@') {
+            Ok(Self {
+                name: name.to_string(),
+                version: Some(version.to_string()),
+            })
+        } else {
+            Ok(Self {
+                name: s,
+                version: None,
+            })
+        }
+    }
+}
+
+impl From<PackageSpec> for String {
+    fn from(spec: PackageSpec) -> Self {
+        match spec.version {
+            Some(v) => format!("{}@{}", spec.name, v),
+            None => spec.name,
+        }
+    }
+}
+
+impl std::fmt::Display for PackageSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.version {
+            Some(v) => write!(f, "{}@{}", self.name, v),
+            None => write!(f, "{}", self.name),
+        }
+    }
 }
 
 /// Local config file (lune.config.json).
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LuneConfig {
     #[serde(default)]
-    pub packages: Vec<String>,
+    pub packages: Vec<PackageSpec>,
 }
 
 /// Alias entry for .luaurc.
@@ -99,7 +155,6 @@ pub fn run_init() -> Result<ExitCode> {
 
     // Create .luaurc with @lune alias
     if luaurc_path.exists() {
-        // Update existing .luaurc to include @lune alias if missing
         let content = std::fs::read_to_string(&luaurc_path)?;
         let mut luaurc = serde_json::from_str::<LuauRc>(&content).unwrap_or_default();
         if !luaurc.aliases.contains_key("lune") {
@@ -146,9 +201,14 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
     let cwd = std::env::current_dir()?;
     let packages_dir = cwd.join("lune_packages");
 
+    // Parse package specs from command line
+    let specs_from_args: Vec<PackageSpec> = packages
+        .into_iter()
+        .filter_map(|s| PackageSpec::try_from(s).ok())
+        .collect();
+
     // Determine packages to install
-    let packages_to_install = if packages.is_empty() {
-        // Read from lune.config.json
+    let packages_to_install = if specs_from_args.is_empty() {
         let config_path = cwd.join("lune.config.json");
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)?;
@@ -169,7 +229,7 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
             return Ok(ExitCode::SUCCESS);
         }
     } else {
-        packages
+        specs_from_args
     };
 
     println!(
@@ -178,20 +238,20 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
         style(packages_to_install.len()).green()
     );
 
-    // Create packages directory
     if !packages_dir.exists() {
         std::fs::create_dir_all(&packages_dir)?;
     }
 
     let mut installed: Vec<(String, PathBuf)> = Vec::new();
 
-    for pkg_name in &packages_to_install {
-        println!("  {} {}", style("→").cyan(), style(pkg_name).bold());
+    for spec in &packages_to_install {
+        println!("  {} {}", style("→").cyan(), style(&spec).bold());
 
-        match install_package(pkg_name, &packages_dir).await {
+        match install_package_with_version(&spec.name, spec.version.as_deref(), &packages_dir).await
+        {
             Ok(path) => {
                 println!("    {} Installed", style("✓").green());
-                installed.push((pkg_name.clone(), path));
+                installed.push((spec.name.clone(), path));
             }
             Err(e) => {
                 eprintln!("    {} {}", style("✗").red(), e);
@@ -199,11 +259,9 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
         }
     }
 
-    // Update lune.config.json
     println!("{} Updating lune.config.json", style("[3/4]").dim());
     update_config(&cwd, &packages_to_install)?;
 
-    // Generate .luaurc with aliases
     println!("{} Generating .luaurc", style("[4/4]").dim());
     generate_luaurc(&cwd, &installed)?;
 
@@ -216,26 +274,174 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-/// Install a single package.
-async fn install_package(name: &str, packages_dir: &Path) -> Result<PathBuf> {
-    // Fetch manifest from registry
+/// Update all packages to latest versions.
+pub async fn run_update() -> Result<ExitCode> {
+    println!("{}", style("Lune Package Updater").cyan().bold());
+
+    let cwd = std::env::current_dir()?;
+    let config_path = cwd.join("lune.config.json");
+
+    if !config_path.exists() {
+        println!(
+            "{} No lune.config.json found. Run: lune --init",
+            style("[WARN]").yellow()
+        );
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let content = std::fs::read_to_string(&config_path)?;
+    let mut config: LuneConfig = serde_json::from_str(&content)?;
+
+    if config.packages.is_empty() {
+        println!("{} No packages to update", style("[INFO]").blue());
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let packages_dir = cwd.join("lune_packages");
+    let mut updated_count = 0;
+
+    for spec in &mut config.packages {
+        println!(
+            "  {} Checking {}",
+            style("→").cyan(),
+            style(&spec.name).bold()
+        );
+
+        let pkg_dir = packages_dir.join(&spec.name);
+        let pkg_info_path = pkg_dir.join("lune-pkg.json");
+
+        // Get current version
+        let current_version = if pkg_info_path.exists() {
+            let info_content = std::fs::read_to_string(&pkg_info_path)?;
+            let info: LunePkgInfo = serde_json::from_str(&info_content)?;
+            Some(info.version)
+        } else {
+            None
+        };
+
+        // Get manifest
+        let manifest_url = format!(
+            "https://raw.githubusercontent.com/{}/{}/manifest/{}.json",
+            REGISTRY_REPO, REGISTRY_BRANCH, spec.name
+        );
+
+        let manifest = match fetch_manifest(&manifest_url) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("    {} Failed to fetch: {}", style("✗").red(), e);
+                continue;
+            }
+        };
+
+        // Use locked version if specified, otherwise get latest
+        let target_version = match &spec.version {
+            Some(v) => v.clone(),
+            None => resolve_latest_tag_via_api(&manifest.repository)?,
+        };
+
+        let needs_update = current_version.as_ref() != Some(&target_version);
+
+        if needs_update {
+            println!(
+                "    {} Updating {} -> {}",
+                style("↳").dim(),
+                current_version.as_deref().unwrap_or("unknown"),
+                style(&target_version).yellow()
+            );
+
+            if pkg_dir.exists() {
+                std::fs::remove_dir_all(&pkg_dir)?;
+            }
+
+            match download_and_extract(
+                &manifest.repository,
+                &target_version,
+                &spec.name,
+                &packages_dir,
+            ) {
+                Ok(()) => {
+                    let pkg_info = LunePkgInfo {
+                        name: spec.name.clone(),
+                        version: target_version.clone(),
+                        description: manifest.description.clone(),
+                        repository: manifest.repository.clone(),
+                    };
+                    let pkg_info_path = packages_dir.join(&spec.name).join("lune-pkg.json");
+                    std::fs::write(&pkg_info_path, serde_json::to_string_pretty(&pkg_info)?)?;
+
+                    // Update locked version in config
+                    spec.version = Some(target_version);
+
+                    println!("    {} Updated", style("✓").green());
+                    updated_count += 1;
+                }
+                Err(e) => {
+                    eprintln!("    {} {}", style("✗").red(), e);
+                }
+            }
+        } else {
+            println!(
+                "    {} Already up to date ({})",
+                style("✓").dim(),
+                target_version
+            );
+        }
+    }
+
+    // Save updated config with locked versions
+    std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
+
+    // Regenerate .luaurc
+    let installed: Vec<(String, PathBuf)> = config
+        .packages
+        .iter()
+        .map(|spec| (spec.name.clone(), packages_dir.join(&spec.name)))
+        .collect();
+    generate_luaurc(&cwd, &installed)?;
+
+    println!(
+        "\n{} {} package(s) updated!",
+        style("✓").green().bold(),
+        updated_count
+    );
+
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Install a single package via zip download with optional version.
+async fn install_package_with_version(
+    name: &str,
+    version: Option<&str>,
+    packages_dir: &Path,
+) -> Result<PathBuf> {
     let manifest_url = format!(
         "https://raw.githubusercontent.com/{}/{}/manifest/{}.json",
         REGISTRY_REPO, REGISTRY_BRANCH, name
     );
     let manifest = fetch_manifest(&manifest_url)?;
 
-    // Resolve latest git tag
-    let tag = resolve_latest_tag(&manifest.repository)?;
+    let tag = match version {
+        Some(v) => v.to_string(),
+        None => resolve_latest_tag_via_api(&manifest.repository)?,
+    };
     println!("    {} tag: {}", style("↳").dim(), style(&tag).yellow());
 
-    // Clone to lune_packages/{name}
     let target_dir = packages_dir.join(name);
     if target_dir.exists() {
         std::fs::remove_dir_all(&target_dir)?;
     }
 
-    clone_repository(&manifest.repository, &tag, &target_dir)?;
+    download_and_extract(&manifest.repository, &tag, name, packages_dir)?;
+
+    // Save lune-pkg.json
+    let pkg_info = LunePkgInfo {
+        name: name.to_string(),
+        version: tag.clone(),
+        description: manifest.description.clone(),
+        repository: manifest.repository.clone(),
+    };
+    let pkg_info_path = target_dir.join("lune-pkg.json");
+    std::fs::write(&pkg_info_path, serde_json::to_string_pretty(&pkg_info)?)?;
 
     Ok(target_dir)
 }
@@ -253,72 +459,129 @@ fn fetch_manifest(url: &str) -> Result<PackageManifest> {
         .context("Failed to parse manifest")
 }
 
-/// Resolve the latest git tag using semver.
-fn resolve_latest_tag(repo_url: &str) -> Result<String> {
-    use git2::Repository;
-    use semver::Version;
+/// Resolve latest tag using GitHub API.
+fn resolve_latest_tag_via_api(repo_url: &str) -> Result<String> {
+    let repo_path = repo_url
+        .trim_end_matches(".git")
+        .trim_start_matches("https://github.com/")
+        .trim_start_matches("http://github.com/");
 
-    // Create a temporary bare repo to list remote refs
-    let temp_dir = std::env::temp_dir().join(format!(".lune_tag_resolve_{}", std::process::id()));
-    if temp_dir.exists() {
-        std::fs::remove_dir_all(&temp_dir)?;
+    let api_url = format!("https://api.github.com/repos/{}/tags", repo_path);
+
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .get(&api_url)
+        .header("User-Agent", "lune-installer")
+        .send()
+        .with_context(|| format!("Failed to fetch tags from {api_url}"))?;
+
+    if !resp.status().is_success() {
+        anyhow::bail!("Failed to fetch tags ({})", resp.status());
     }
 
-    let repo = Repository::init_bare(&temp_dir)?;
-    let mut remote = repo.remote_anonymous(repo_url)?;
-    remote.connect(git2::Direction::Fetch)?;
+    #[derive(Deserialize)]
+    struct GitHubTag {
+        name: String,
+    }
 
-    let refs = remote.list()?;
-    let mut versions: Vec<(Version, String)> = refs
+    let tags: Vec<GitHubTag> = resp.json()?;
+
+    if tags.is_empty() {
+        anyhow::bail!("No tags found in repository");
+    }
+
+    // Sort by semver
+    use semver::Version;
+    let mut versions: Vec<(Version, String)> = tags
         .iter()
-        .filter_map(|head| {
-            let name = head.name();
-            // Extract tag name from refs/tags/v1.0.0 or refs/tags/1.0.0
-            name.strip_prefix("refs/tags/")
-                .map(|tag| tag.trim_start_matches('v'))
-                .and_then(|ver| Version::parse(ver).ok())
-                .map(|ver| {
-                    (
-                        ver,
-                        name.strip_prefix("refs/tags/").unwrap_or(name).to_owned(),
-                    )
-                })
+        .filter_map(|t| {
+            let ver_str = t.name.trim_start_matches('v');
+            Version::parse(ver_str).ok().map(|v| (v, t.name.clone()))
         })
         .collect();
 
-    // Sort by version descending
     versions.sort_by(|a, b| b.0.cmp(&a.0));
-
-    // Cleanup
-    let _ = std::fs::remove_dir_all(&temp_dir);
 
     versions
         .first()
         .map(|(_, tag)| tag.clone())
-        .ok_or_else(|| anyhow::anyhow!("No valid semver tags found in repository"))
+        .ok_or_else(|| anyhow::anyhow!("No valid semver tags found"))
 }
 
-/// Clone repository at specific tag with depth 1.
-fn clone_repository(repo_url: &str, tag: &str, target: &Path) -> Result<()> {
-    use git2::FetchOptions;
-    use git2::build::RepoBuilder;
+/// Download and extract zip from GitHub releases.
+fn download_and_extract(
+    repo_url: &str,
+    tag: &str,
+    pkg_name: &str,
+    packages_dir: &Path,
+) -> Result<()> {
+    let repo_path = repo_url
+        .trim_end_matches(".git")
+        .trim_start_matches("https://github.com/")
+        .trim_start_matches("http://github.com/");
 
-    let mut fetch_opts = FetchOptions::new();
-    fetch_opts.depth(1);
+    let zip_url = format!(
+        "https://github.com/{}/archive/refs/tags/{}.zip",
+        repo_path, tag
+    );
 
-    let mut builder = RepoBuilder::new();
-    builder.fetch_options(fetch_opts);
-    builder.branch(tag);
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .get(&zip_url)
+        .header("User-Agent", "lune-installer")
+        .send()
+        .with_context(|| format!("Failed to download {zip_url}"))?;
 
-    builder
-        .clone(repo_url, target)
-        .with_context(|| format!("Failed to clone {repo_url} at tag {tag}"))?;
+    if !resp.status().is_success() {
+        anyhow::bail!("Failed to download zip ({})", resp.status());
+    }
+
+    let bytes = resp.bytes()?;
+    let cursor = Cursor::new(bytes);
+    let mut archive = ZipArchive::new(cursor)?;
+
+    let target_dir = packages_dir.join(pkg_name);
+    std::fs::create_dir_all(&target_dir)?;
+
+    // Get root folder name from first entry
+    let root_prefix = archive
+        .by_index(0)?
+        .name()
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .to_string();
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let file_path = file.name();
+
+        let relative_path = file_path
+            .strip_prefix(&format!("{}/", root_prefix))
+            .unwrap_or(file_path);
+
+        if relative_path.is_empty() {
+            continue;
+        }
+
+        let out_path = target_dir.join(relative_path);
+
+        if file.is_dir() {
+            std::fs::create_dir_all(&out_path)?;
+        } else {
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let mut out_file = std::fs::File::create(&out_path)?;
+            std::io::copy(&mut file, &mut out_file)?;
+        }
+    }
 
     Ok(())
 }
 
 /// Update lune.config.json with installed packages.
-fn update_config(cwd: &Path, packages: &[String]) -> Result<()> {
+fn update_config(cwd: &Path, packages: &[PackageSpec]) -> Result<()> {
     let config_path = cwd.join("lune.config.json");
 
     let mut config = if config_path.exists() {
@@ -328,9 +591,8 @@ fn update_config(cwd: &Path, packages: &[String]) -> Result<()> {
         LuneConfig::default()
     };
 
-    // Add new packages
     for pkg in packages {
-        if !config.packages.contains(pkg) {
+        if !config.packages.iter().any(|p| p.name == pkg.name) {
             config.packages.push(pkg.clone());
         }
     }
@@ -343,7 +605,6 @@ fn update_config(cwd: &Path, packages: &[String]) -> Result<()> {
 fn generate_luaurc(cwd: &Path, installed: &[(String, PathBuf)]) -> Result<()> {
     let luaurc_path = cwd.join(".luaurc");
 
-    // Read existing
     let mut luaurc = if luaurc_path.exists() {
         let content = std::fs::read_to_string(&luaurc_path)?;
         serde_json::from_str::<LuauRc>(&content).unwrap_or_default()
@@ -351,23 +612,22 @@ fn generate_luaurc(cwd: &Path, installed: &[(String, PathBuf)]) -> Result<()> {
         LuauRc::default()
     };
 
-    // Add aliases for installed packages
     for (name, path) in installed {
         let entry = find_entry_point(path);
         let relative = pathdiff::diff_paths(&entry, cwd).unwrap_or_else(|| entry.clone());
 
-        let alias = format!("@{}", name);
         luaurc
             .aliases
-            .insert(alias, format!("./{}", relative.display()));
+            .insert(name.clone(), format!("./{}", relative.display()));
     }
 
     std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
     Ok(())
 }
 
-/// Find entry point for a package (init.luau, main.luau, lib/init.luau).
+/// Find entry point for a package.
 fn find_entry_point(pkg_path: &Path) -> PathBuf {
+    // Direct candidates
     for candidate in ["init.luau", "main.luau", "lib/init.luau", "src/init.luau"] {
         let path = pkg_path.join(candidate);
         if path.exists() {
@@ -377,5 +637,18 @@ fn find_entry_point(pkg_path: &Path) -> PathBuf {
                 .unwrap_or_else(|| pkg_path.to_path_buf());
         }
     }
+
+    // Search one level deep for init.luau
+    if let Ok(entries) = std::fs::read_dir(pkg_path) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let init_path = entry.path().join("init.luau");
+                if init_path.exists() {
+                    return entry.path();
+                }
+            }
+        }
+    }
+
     pkg_path.to_path_buf()
 }

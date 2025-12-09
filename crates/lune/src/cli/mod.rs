@@ -25,6 +25,10 @@ pub struct Cli {
     #[arg(short, long, num_args = 0..)]
     pub install: Option<Vec<String>>,
 
+    /// Update all packages to latest versions
+    #[arg(long = "updpkg")]
+    pub update_packages: bool,
+
     /// Script file to run
     #[arg(index = 1)]
     pub script: Option<String>,
@@ -51,6 +55,7 @@ impl Default for Cli {
         Self {
             init: false,
             install: None,
+            update_packages: false,
             script: None,
             script_args: Vec::new(),
             list: false,
@@ -100,6 +105,11 @@ impl Cli {
         // Mode: Installation
         if let Some(packages) = self.install {
             return installer::run_install(packages).await;
+        }
+
+        // Mode: Update packages
+        if self.update_packages {
+            return installer::run_update().await;
         }
 
         // Mode: List
