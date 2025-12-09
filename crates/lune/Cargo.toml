@@ -85,7 +85,7 @@ zip = { optional = true, version = "5.1", default-features = false, features = [
 ] }
 
 ### Installer
-git2 = { optional = true, version = "0.20", default-features = false }
+git2 = { optional = true, version = "0.20", default-features = false, features = ["vendored-libgit2", "vendored-openssl", "https"] }
 reqwest = { optional = true, version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 pathdiff = { optional = true, version = "0.2" }
 semver = { optional = true, version = "1.0" }
