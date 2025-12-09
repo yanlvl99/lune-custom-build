@@ -19,6 +19,7 @@ const REGISTRY_BRANCH: &str = "main";
 
 /// Package manifest from the registry.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct PackageManifest {
     name: String,
     #[serde(default)]
@@ -275,6 +276,7 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
 }
 
 /// Update all packages to latest versions.
+#[allow(clippy::unused_async)]
 pub async fn run_update() -> Result<ExitCode> {
     println!("{}", style("Lune Package Updater").cyan().bold());
 
@@ -409,6 +411,7 @@ pub async fn run_update() -> Result<ExitCode> {
 }
 
 /// Uninstall packages (supports multiple packages).
+#[allow(clippy::unused_async)]
 pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
     println!("{}", style("Lune Package Uninstaller").cyan().bold());
 
@@ -568,6 +571,7 @@ pub fn run_package_info(name: &str) -> Result<ExitCode> {
 }
 
 /// Install a single package via zip download with optional version.
+#[allow(clippy::unused_async)]
 async fn install_package_with_version(
     name: &str,
     version: Option<&str>,

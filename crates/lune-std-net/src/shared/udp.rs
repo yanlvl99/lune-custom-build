@@ -3,7 +3,6 @@
 //! Provides async UDP bind, send, and receive operations.
 
 use async_io::Async;
-use futures_lite::future;
 use mlua::prelude::*;
 use std::net::UdpSocket as StdUdpSocket;
 use std::sync::Arc;
@@ -135,11 +134,4 @@ impl LuaUserData for UdpSocket {
         // close() - not really needed as drop handles it, but for explicitness
         methods.add_method("close", |_, _, ()| Ok(()));
     }
-}
-
-/// Bind a new UDP socket.
-#[allow(dead_code, clippy::unused_async)]
-pub async fn net_udp_bind(_: Lua, addr: String) -> LuaResult<UdpSocket> {
-    // Run bind in blocking context since it might do DNS
-    future::block_on(async { UdpSocket::bind(&addr) })
 }

@@ -144,9 +144,3 @@ impl LuaUserData for TcpServer {
         methods.add_method("close", |_, _, ()| Ok(()));
     }
 }
-
-/// Create a TCP server listening on the given address.
-#[allow(dead_code)]
-pub async fn net_tcp_listen(_: Lua, addr: String) -> LuaResult<TcpServer> {
-    TcpServer::listen(&addr).await
-}

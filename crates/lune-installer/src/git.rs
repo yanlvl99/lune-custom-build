@@ -25,6 +25,7 @@ pub fn clone_shallow(
 }
 
 /// List remote tags from a repository URL.
+#[allow(dead_code)]
 pub fn list_remote_tags(url: &str) -> Result<Vec<String>, InstallError> {
     let repo = Repository::init_bare(std::env::temp_dir().join(".lune_remote_temp"))
         .map_err(InstallError::from)?;
