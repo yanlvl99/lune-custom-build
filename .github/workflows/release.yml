@@ -148,7 +148,7 @@ jobs:
           # Isso corrige os erros WIX0045 e WIX0005 que você teve.
           $wxsContent = @"
           <Wix xmlns='http://wixtoolset.org/schemas/v4/wxs' xmlns:ui='http://wixtoolset.org/schemas/v4/wxs/ui'>
-            <Package Name='Lune Custom Build' Manufacturer='yanlvl99' Version='0.10.6' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
+            <Package Name='Lune Custom Build' Manufacturer='yanlvl99' Version='0.10.7' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
               <MajorUpgrade Schedule='afterInstallInitialize' AllowDowngrades='yes' />
               <MediaTemplate EmbedCab='yes' CompressionLevel='high' />
               
@@ -173,7 +173,7 @@ jobs:
               <Component Id='LuneExe' Directory='INSTALLFOLDER' Guid='A1B2C3D4-E5F6-7890-ABCD-EF1234567890'>
                 <File Id='LuneExeFile' Source='lune.exe' KeyPath='yes' Checksum='yes' />
                 <RegistryKey Root='HKLM' Key='Software\yanlvl99\Lune'>
-                  <RegistryValue Name='Version' Value='0.10.6' Type='string' KeyPath='no' />
+                  <RegistryValue Name='Version' Value='0.10.7' Type='string' KeyPath='no' />
                   <RegistryValue Name='InstallDir' Value='[INSTALLFOLDER]' Type='string' KeyPath='no' />
                 </RegistryKey>
               </Component>
@@ -253,8 +253,12 @@ jobs:
           body: |
             A standalone Luau runtime for backend and game-server development.
 
-            ### What's New in v0.10.6
-            - **Auto `@lune` alias**: `lune --init` now automatically configures the `@lune` alias in `.luaurc`
+            ### What's New in v0.10.7
+            - **FFI Callbacks**: Full callback support with `ffi.callback()` for passing Lua functions to C code
+            - **FFI listExports**: New `lib:listExports()` to list all exported functions from DLLs/shared libraries
+            - **FFI Error Handling**: Detailed error messages with `[FFI ERROR]` prefix
+            - **Package Management**: Added `--uninstall`, `--listpkg`, and `--info` commands
+            - **Improved Error Display**: Colorized error messages with `[Lune Error]` header and colored stack traces
 
             ### Downloads
 
