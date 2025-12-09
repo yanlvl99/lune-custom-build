@@ -1,221 +1,76 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" 
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
-     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   
   <Package Name="Lune Custom Build"
            Manufacturer="yanlvl99"
-           Version="0.10.6"
+           Version="0.10.5"
            UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
            Language="1033"
-           Scope="perMachine"
+           Scope="perMachine" 
            InstallerVersion="500"
            Compressed="yes">
 
-    <!-- Configurações de upgrade -->
-    <MajorUpgrade 
-      Schedule="afterInstallInitialize"
-      DowngradeErrorMessage="Uma versão mais recente já está instalada. Por favor, desinstale-a primeiro." 
-      AllowSameVersionUpgrades="yes" />
-    
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="yes" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
-
-    <!-- Propriedades personalizadas -->
-    <Property Id="ARPPRODUCTICON" Value="LuneIcon" />
-    <Property Id="ARPHELPLINK" Value="https://yanlvl99.github.io/lune-custom-build-doc/" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/yanlvl99/lune-custom-build" />
-    <Property Id="ARPCOMMENTS" Value="Lune Custom Build - Lua Runtime with Extended Features" />
-    <Property Id="ARPCONTACT" Value="yanlvl99" />
-    <Property Id="ARPNOMODIFY" Value="1" />
-    <Property Id="ARPNOREPAIR" Value="0" />
-    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
-    <!-- Opções configuráveis pelo usuário -->
-    <Property Id="ADDTOPATH" Value="1" />
-    <Property Id="CREATEDESKTOPSHORTCUT" Value="1" />
-    <Property Id="CREATESTARTMENUSHORTCUT" Value="1" />
-
-    <!-- Estrutura de diretórios -->
-    <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="Lune">
-        <!-- Diretório para documentação -->
-        <Directory Id="DOCFOLDER" Name="docs" />
-        <!-- Diretório para exemplos -->
-        <Directory Id="EXAMPLESFOLDER" Name="examples" />
-      </Directory>
-    </StandardDirectory>
-
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ApplicationProgramsFolder" Name="Lune Custom Build" />
-    </StandardDirectory>
-
-    <StandardDirectory Id="DesktopFolder" />
-
-    <!-- Componente principal - executável -->
-    <Component Id="LuneExe" Directory="INSTALLFOLDER" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
-      <File Id="LuneExeFile" 
-            Source="lune.exe" 
-            KeyPath="yes"
-            Checksum="yes">
-        <!-- Associação de arquivos .luau -->
-        <ProgId Id="LuneScript" Description="Lune Script File" Icon="LuneIcon">
-          <Extension Id="luau" ContentType="text/plain">
-            <Verb Id="open" Command="Run with Lune" Argument='"%1" %*' />
-          </Extension>
-        </ProgId>
-      </File>
-      
-      <!-- Chave de registro para identificação do software -->
-      <RegistryKey Root="HKLM" Key="Software\yanlvl99\Lune">
-        <RegistryValue Type="string" Name="InstallPath" Value="[INSTALLFOLDER]" KeyPath="no" />
-        <RegistryValue Type="string" Name="Version" Value="0.10.6" KeyPath="no" />
-      </RegistryKey>
-    </Component>
-
-    <!-- Componente - Variável de ambiente PATH (condicional) -->
-    <Component Id="PathEnvVar" Directory="INSTALLFOLDER" Guid="B2C3D4E5-F678-90AB-CDEF-123456789ABC">
-      <Condition>ADDTOPATH = "1"</Condition>
-      <Environment Id="PATH"
-                   Name="PATH"
-                   Value="[INSTALLFOLDER]"
-                   Permanent="no"
-                   Part="last"
-                   Action="set"
-                   System="yes" />
-    </Component>
-
-    <!-- Componente - Atalho na Área de Trabalho (condicional) -->
-    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="C3D4E5F6-7890-ABCD-EF12-34567890ABCD">
-      <Condition>CREATEDESKTOPSHORTCUT = "1"</Condition>
-      <Shortcut Id="DesktopShortcut"
-                Name="Lune Custom Build"
-                Description="Lune Custom Build - Lua Runtime"
-                Target="[INSTALLFOLDER]lune.exe"
-                WorkingDirectory="INSTALLFOLDER"
-                Icon="LuneIcon" />
-      <RegistryValue Root="HKCU" 
-                     Key="Software\yanlvl99\Lune" 
-                     Name="DesktopShortcut" 
-                     Type="integer" 
-                     Value="1" 
-                     KeyPath="yes" />
-    </Component>
-
-    <!-- Componente - Atalho no Menu Iniciar (condicional) -->
-    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="D4E5F678-90AB-CDEF-1234-567890ABCDEF">
-      <Condition>CREATESTARTMENUSHORTCUT = "1"</Condition>
-      <Shortcut Id="ApplicationStartMenuShortcut"
-                Name="Lune Custom Build"
-                Description="Lune Custom Build - Lua Runtime"
-                Target="[INSTALLFOLDER]lune.exe"
-                WorkingDirectory="INSTALLFOLDER"
-                Icon="LuneIcon" />
-      
-      <!-- Atalho para documentação -->
-      <Shortcut Id="DocumentationShortcut"
-                Name="Lune | Lune Custom Build"
-                Description="Lune Custom Build Documentation"
-                Target="https://yanlvl99.github.io/lune-custom-build-doc/" />
-      
-      <!-- Atalho para desinstalar -->
-      <Shortcut Id="UninstallShortcut"
-                Name="Uninstall Lune"
-                Description="Uninstall Lune Custom Build"
-                Target="[System64Folder]msiexec.exe"
-                Arguments="/x [ProductCode]" />
-      
-      <RegistryValue Root="HKCU" 
-                     Key="Software\yanlvl99\Lune" 
-                     Name="StartMenuShortcut" 
-                     Type="integer" 
-                     Value="1" 
-                     KeyPath="yes" />
-      
-      <RemoveFolder Id="CleanUpStartMenu" On="uninstall" />
-    </Component>
-
-    <!-- Componente - README e LICENSE -->
-    <Component Id="Documentation" Directory="DOCFOLDER" Guid="E5F67890-ABCD-EF12-3456-7890ABCDEF12">
-      <File Id="ReadmeFile" Source="README.md" KeyPath="yes" />
-      <File Id="LicenseFile" Source="LICENSE.txt" />
-      <File Id="ChangelogFile" Source="CHANGELOG.md" />
-    </Component>
-
-    <!-- Feature principal -->
-    <Feature Id="MainFeature" 
-             Title="Lune Custom Build" 
-             Description="Instala o executável principal do Lune."
-             Level="1" 
-             Display="expand"
-             ConfigurableDirectory="INSTALLFOLDER"
-             AllowAdvertise="no">
-      <ComponentRef Id="LuneExe" />
-      <ComponentRef Id="PathEnvVar" />
-      <ComponentRef Id="Documentation" />
-    </Feature>
-
-    <!-- Feature - Atalhos -->
-    <Feature Id="ShortcutsFeature" 
-             Title="Atalhos" 
-             Description="Cria atalhos para fácil acesso ao Lune."
-             Level="1"
-             AllowAdvertise="no">
-      <ComponentRef Id="DesktopShortcut" />
-      <ComponentRef Id="StartMenuShortcut" />
-    </Feature>
-
-    <!-- Ícone do aplicativo -->
     <Icon Id="LuneIcon" SourceFile="lune.ico" />
+    <Property Id="ARPPRODUCTICON" Value="LuneIcon" />
 
-    <!-- Interface personalizada -->
-    <ui:WixUI Id="WixUI_FeatureTree" />
-    
-    <!-- Variáveis de interface -->
     <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
 
-    <!-- Diálogo customizado para opções -->
-    <UI>
-      <Dialog Id="CustomizeDlg" Width="370" Height="270" Title="[ProductName] Setup - Opções de Instalação">
-        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
-          <Text>{\WixUI_Font_Title}Opções de Instalação</Text>
-        </Control>
-        
-        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
-          <Text>Personalize sua instalação do Lune</Text>
-        </Control>
-        
-        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
-        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
-        
-        <Control Id="AddToPathCheckbox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="ADDTOPATH" CheckBoxValue="1">
-          <Text>Adicionar Lune ao PATH do sistema</Text>
-        </Control>
-        
-        <Control Id="DesktopShortcutCheckbox" Type="CheckBox" X="20" Y="85" Width="330" Height="18" Property="CREATEDESKTOPSHORTCUT" CheckBoxValue="1">
-          <Text>Criar atalho na Área de Trabalho</Text>
-        </Control>
-        
-        <Control Id="StartMenuShortcutCheckbox" Type="CheckBox" X="20" Y="110" Width="330" Height="18" Property="CREATESTARTMENUSHORTCUT" CheckBoxValue="1">
-          <Text>Criar atalhos no Menu Iniciar</Text>
-        </Control>
-        
-        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
-        
-        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
-        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
-        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
-          <Publish Event="SpawnDialog" Value="CancelDlg" />
-        </Control>
-      </Dialog>
-      
-      <!-- Sequência de diálogos -->
-      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" />
-      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg" />
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CustomizeDlg" />
-    </UI>
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <ui:WixUI Id="WixUI_InstallDir" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="Lune Custom Build">
+            <Directory Id="DOCFOLDER" Name="docs" />
+        </Directory>
+    </StandardDirectory>
+    
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramsFolder" Name="Lune Custom Build" />
+    </StandardDirectory>
+
+    <Component Id="LuneExe" Directory="INSTALLFOLDER" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+      <File Id="LuneExeFile" Source="lune.exe" KeyPath="yes" Checksum="yes" />
+      <RegistryKey Root="HKLM" Key="Software\yanlvl99\Lune">
+        <RegistryValue Name="Version" Value="0.10.5" Type="string" KeyPath="no" />
+        <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" KeyPath="no" />
+      </RegistryKey>
+    </Component>
+
+    <Component Id="FileAssoc" Directory="INSTALLFOLDER" Guid="F6789ABC-DEF0-1234-5678-90ABCDEF1234">
+      <ProgId Id="LuneScript" Description="Lune Script" Icon="LuneExeFile">
+        <Extension Id="luau" ContentType="text/plain">
+          <Verb Id="open" TargetFile="LuneExeFile" Command="Run" Argument='"%1" %*' />
+        </Extension>
+      </ProgId>
+      <RegistryValue Root="HKLM" Key="Software\yanlvl99\Lune" Name="Assoc" Value="1" Type="integer" KeyPath="yes" />
+    </Component>
+
+    <Component Id="PathSystem" Directory="INSTALLFOLDER" Guid="B2C3D4E5-F678-90AB-CDEF-123456789ABC">
+      <Environment Id="EnvPathSys" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="yes" />
+    </Component>
+
+    <Component Id="Shortcuts" Directory="AppProgramsFolder" Guid="D4E5F678-90AB-CDEF-1234-567890ABCDEF">
+      <Shortcut Id="ExeSc" Name="Lune Custom Build" Target="[INSTALLFOLDER]lune.exe" Icon="LuneIcon" />
+      <RemoveFolder Id="CleanSc" On="uninstall" />
+      <RegistryValue Root="HKLM" Key="Software\yanlvl99\Lune" Name="Sc" Value="1" Type="integer" KeyPath="yes" />
+    </Component>
+
+    <Component Id="Docs" Directory="DOCFOLDER" Guid="E5F67890-ABCD-EF12-3456-7890ABCDEF12">
+      <File Source="docs/README.md" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Main" Title="Lune Custom Build" Level="1">
+      <ComponentRef Id="LuneExe" />
+      <ComponentRef Id="Docs" />
+      <ComponentRef Id="FileAssoc" />
+      <ComponentRef Id="Shortcuts" />
+      <ComponentRef Id="PathSystem" />
+    </Feature>
 
   </Package>
 </Wix>
