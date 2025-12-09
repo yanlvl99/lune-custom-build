@@ -84,53 +84,40 @@ jobs:
           name: lune-windows-x86_64.zip
           path: installer_temp/
 
-      - name: Prepare Binary and Icon
+      - name: Prepare Files
         shell: pwsh
         run: |
-          # Extrai o ZIP do build
+          # Extrai o ZIP
           Expand-Archive -Path installer_temp/lune-windows-x86_64.zip -DestinationPath installer_temp/
-          
-          # Move o executável para a pasta installer
+          # Garante que a pasta installer existe
+          if (-not (Test-Path "installer")) { New-Item -ItemType Directory -Path "installer" }
+          # Move o executável
           Copy-Item installer_temp/lune.exe -Destination installer/lune.exe -Force
-          
-          # Move o ícone (se existir no repo)
+          # Move o ícone se existir
           if (Test-Path "assets/logo/no-tilt.ico") {
             Copy-Item assets/logo/no-tilt.ico -Destination installer/lune.ico -Force
           }
 
-      - name: Generate Assets (Docs, License & Images)
+      - name: Generate All Assets (WXS, Docs, License, Images)
         shell: pwsh
         working-directory: installer
         run: |
-          # === 1. CORREÇÃO DO README E LICENSE ===
-          # Cria a pasta docs dentro de installer
+          # === 1. CRIAR PASTA DOCS E ARQUIVOS ===
           New-Item -ItemType Directory -Path "docs" -Force | Out-Null
           
-          # Copia README.md da RAIZ (..) para installer/docs
-          if (Test-Path "../README.md") {
-            Copy-Item "../README.md" -Destination "docs/README.md" -Force
-          } else {
-            Set-Content "docs/README.md" "# Lune Custom Build" # Fallback para segurança
-          }
+          if (Test-Path "../README.md") { Copy-Item "../README.md" -Destination "docs/README.md" -Force }
+          else { Set-Content "docs/README.md" "# Lune Custom Build" }
 
-          # Copia LICENSE da RAIZ (..) para installer/docs
-          if (Test-Path "../LICENSE") {
-            Copy-Item "../LICENSE" -Destination "docs/LICENSE.txt" -Force
-          } else {
-             Set-Content "docs/LICENSE.txt" "MPL 2.0" # Fallback
-          }
+          if (Test-Path "../LICENSE") { Copy-Item "../LICENSE" -Destination "docs/LICENSE.txt" -Force }
+          else { Set-Content "docs/LICENSE.txt" "MPL 2.0" }
 
-          # === 2. CRIAR LICENÇA RTF (PARA O INSTALADOR) ===
+          # === 2. CRIAR LICENÇA RTF ===
           $rtfHeader = "{\rtf1\ansi\deff0\nouicompat{\fonttbl{\f0\fnil\fcharset0 Segoe UI;}}\viewkind4\uc1 \pard\sa200\sl276\slmult1\f0\fs20\lang22 "
           $licenseText = @"
           LUNE CUSTOM BUILD - END USER LICENSE AGREEMENT
           
           This software is licensed under the Mozilla Public License 2.0.
-          
-          1. Definitions
-          1.1. "Contributor" means each individual or legal entity that creates, contributes to the creation of, or owns Covered Software.
-          
-          (Standard MPL 2.0 Terms Apply - See https://mozilla.org/MPL/2.0/)
+          (See https://mozilla.org/MPL/2.0/ for full legal text)
           "@
           $finalRtf = $rtfHeader + ($licenseText -replace "`n", "\par ") + "}"
           Set-Content "license.rtf" $finalRtf -Encoding ASCII
@@ -157,6 +144,76 @@ jobs:
           $dialog.Save("dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
           $g2.Dispose(); $dialog.Dispose()
 
+          # === 4. CRIAR O ARQUIVO WXS CORRIGIDO (SOBRESCREVE O DO REPO) ===
+          # Isso corrige os erros WIX0045 e WIX0005 que você teve.
+          $wxsContent = @"
+          <Wix xmlns='http://wixtoolset.org/schemas/v4/wxs' xmlns:ui='http://wixtoolset.org/schemas/v4/wxs/ui'>
+            <Package Name='Lune Custom Build' Manufacturer='yanlvl99' Version='0.10.5' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
+              <MajorUpgrade Schedule='afterInstallInitialize' AllowDowngrades='yes' />
+              <MediaTemplate EmbedCab='yes' CompressionLevel='high' />
+              
+              <Icon Id='LuneIcon' SourceFile='lune.ico' />
+              <Property Id='ARPPRODUCTICON' Value='LuneIcon' />
+              <WixVariable Id='WixUILicenseRtf' Value='license.rtf' />
+              <WixVariable Id='WixUIBannerBmp' Value='banner.bmp' />
+              <WixVariable Id='WixUIDialogBmp' Value='dialog.bmp' />
+
+              <Property Id='WIXUI_INSTALLDIR' Value='INSTALLFOLDER' />
+              <ui:WixUI Id='WixUI_InstallDir' />
+
+              <StandardDirectory Id='ProgramFiles64Folder'>
+                <Directory Id='INSTALLFOLDER' Name='Lune Custom Build'>
+                  <Directory Id='DOCFOLDER' Name='docs' />
+                </Directory>
+              </StandardDirectory>
+              <StandardDirectory Id='ProgramMenuFolder'>
+                <Directory Id='AppProgramsFolder' Name='Lune Custom Build' />
+              </StandardDirectory>
+
+              <Component Id='LuneExe' Directory='INSTALLFOLDER' Guid='A1B2C3D4-E5F6-7890-ABCD-EF1234567890'>
+                <File Id='LuneExeFile' Source='lune.exe' KeyPath='yes' Checksum='yes' />
+                <RegistryKey Root='HKLM' Key='Software\yanlvl99\Lune'>
+                  <RegistryValue Name='Version' Value='0.10.5' Type='string' KeyPath='no' />
+                  <RegistryValue Name='InstallDir' Value='[INSTALLFOLDER]' Type='string' KeyPath='no' />
+                </RegistryKey>
+              </Component>
+
+              <Component Id='FileAssoc' Directory='INSTALLFOLDER' Guid='F6789ABC-DEF0-1234-5678-90ABCDEF1234'>
+                <ProgId Id='LuneScript' Description='Lune Script' Icon='LuneExeFile'>
+                  <Extension Id='luau' ContentType='text/plain'>
+                    <Verb Id='open' TargetFile='LuneExeFile' Command='Run' Argument='&quot;%1&quot; %*' />
+                  </Extension>
+                </ProgId>
+                <RegistryValue Root='HKLM' Key='Software\yanlvl99\Lune' Name='Assoc' Value='1' Type='integer' KeyPath='yes' />
+              </Component>
+
+              <Component Id='PathSystem' Directory='INSTALLFOLDER' Guid='B2C3D4E5-F678-90AB-CDEF-123456789ABC'>
+                <Environment Id='EnvPathSys' Name='PATH' Value='[INSTALLFOLDER]' Part='last' Action='set' System='yes' />
+              </Component>
+
+              <Component Id='Shortcuts' Directory='AppProgramsFolder' Guid='D4E5F678-90AB-CDEF-1234-567890ABCDEF'>
+                <Shortcut Id='ExeSc' Name='Lune Custom Build' Target='[INSTALLFOLDER]lune.exe' Icon='LuneIcon' />
+                <RemoveFolder Id='CleanSc' On='uninstall' />
+                <RegistryValue Root='HKLM' Key='Software\yanlvl99\Lune' Name='Sc' Value='1' Type='integer' KeyPath='yes' />
+              </Component>
+
+              <Component Id='Docs' Directory='DOCFOLDER' Guid='E5F67890-ABCD-EF12-3456-7890ABCDEF12'>
+                <File Source='docs/README.md' KeyPath='yes' />
+                <File Source='docs/LICENSE.txt' />
+              </Component>
+
+              <Feature Id='Main' Title='Lune Custom Build' Level='1'>
+                <ComponentRef Id='LuneExe' />
+                <ComponentRef Id='Docs' />
+                <ComponentRef Id='FileAssoc' />
+                <ComponentRef Id='Shortcuts' />
+                <ComponentRef Id='PathSystem' />
+              </Feature>
+            </Package>
+          </Wix>
+          "@
+          Set-Content "lune.wxs" $wxsContent -Encoding UTF8
+
       - name: Install WiX Toolset
         run: dotnet tool install --global wix
 
@@ -164,11 +221,9 @@ jobs:
         shell: pwsh
         working-directory: installer
         run: |
-          # Instala as extensões necessárias
           wix extension add WixToolset.UI.wixext --global
           wix extension add WixToolset.Util.wixext --global
           
-          # Compila o MSI
           wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
 
       - name: Upload MSI
