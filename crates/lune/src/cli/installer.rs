@@ -44,6 +44,10 @@ pub fn run_init() -> Result<ExitCode> {
     let config_path = cwd.join("lune.config.json");
     let luaurc_path = cwd.join(".luaurc");
 
+    // Get version for typedefs path
+    let version = env!("CARGO_PKG_VERSION");
+    let typedefs_path = format!("~/.lune/.typedefs/{}/", version);
+
     // Create lune.config.json
     if config_path.exists() {
         println!(
@@ -64,7 +68,7 @@ pub fn run_init() -> Result<ExitCode> {
         if !luaurc.aliases.contains_key("lune") {
             luaurc
                 .aliases
-                .insert("lune".to_owned(), "./types/".to_owned());
+                .insert("lune".to_owned(), typedefs_path.clone());
             std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
             println!("{} Updated .luaurc with @lune alias", style("[OK]").green());
         } else {
@@ -77,7 +81,7 @@ pub fn run_init() -> Result<ExitCode> {
         let mut luaurc = LuauRc::default();
         luaurc
             .aliases
-            .insert("lune".to_owned(), "./types/".to_owned());
+            .insert("lune".to_owned(), typedefs_path.clone());
         std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
         println!("{} Created .luaurc with @lune alias", style("[OK]").green());
     }
