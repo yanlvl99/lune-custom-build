@@ -85,11 +85,24 @@ impl ErrorComponents {
 
 impl fmt::Display for ErrorComponents {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for message in self.messages() {
-            writeln!(f, "{message}")?;
+        // Print error header
+        writeln!(f, "{}", style("[Lune Error]").red().bold())?;
+
+        // Print each error message with styling
+        for (i, message) in self.messages().iter().enumerate() {
+            if i == 0 {
+                // Main error message in red
+                writeln!(f, "{} {}", style("→").red(), style(message).red())?;
+            } else {
+                // Additional context in dim
+                writeln!(f, "  {}", style(message).dim())?;
+            }
         }
+
+        // Print stack trace if available
         if self.has_trace() {
             let trace = self.trace.as_ref().expect("trace exists and is non-empty");
+            writeln!(f)?;
             writeln!(f, "{}", *STYLED_STACK_BEGIN)?;
             for line in trace.lines() {
                 writeln!(f, "{STACK_TRACE_INDENT}{line}")?;

@@ -36,11 +36,23 @@ export type Buffer = {
 	slice: (self: Buffer, offset: number, size: number) -> Buffer,
 }
 
+export type ExportInfo = {
+	name: string,
+	ordinal: number?,
+}
+
 export type NativeLibrary = {
 	path: string,
 	getSymbol: (self: NativeLibrary, name: string) -> any,
 	hasSymbol: (self: NativeLibrary, name: string) -> boolean,
-	call: (self: NativeLibrary, name: string, returnType: CType, argTypes: { CType }, ...any) -> any,
+	listExports: (self: NativeLibrary) -> { ExportInfo },
+	call: (
+		self: NativeLibrary,
+		name: string,
+		returnType: CType,
+		argTypes: { CType },
+		...any
+	) -> any,
 	callPtr: (self: NativeLibrary, ptr: any, returnType: CType, argTypes: { CType }, ...any) -> any,
 	callInt: (self: NativeLibrary, name: string) -> number,
 	callDouble: (self: NativeLibrary, name: string) -> number,
@@ -80,6 +92,14 @@ export type Types = {
 	alignof: (ctype: CType) -> number,
 }
 
+export type FfiCallback = {
+	ptr: any,
+	retType: CType,
+	argCount: number,
+	isValid: boolean,
+	getPtr: (self: FfiCallback) -> any,
+}
+
 return {
 	open = (nil :: any) :: (path: string) -> NativeLibrary,
 	buffer = (nil :: any) :: (size: number) -> Buffer,
@@ -91,4 +111,7 @@ return {
 	alignof = (nil :: any) :: (ctype: CType) -> number,
 	types = (nil :: any) :: Types,
 	cdef = (nil :: any) :: (def: string) -> (),
+	callback = (
+			nil :: any
+		) :: (fn: (...any) -> any, retType: CType, argTypes: { CType }) -> FfiCallback,
 }

@@ -152,17 +152,26 @@ impl FromStr for StackTraceLine {
 
 impl fmt::Display for StackTraceLine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use console::style;
+
         if matches!(self.source, StackTraceSource::C) {
-            write!(f, "Script '[C]'")?;
+            write!(f, "{}", style("[C]").cyan())?;
         } else {
-            write!(f, "Script '{}'", self.path.as_deref().unwrap_or("[?]"))?;
+            // Show script path in cyan
+            let path = self.path.as_deref().unwrap_or("[?]");
+            write!(f, "{}", style(path).cyan())?;
+
+            // Show line number in yellow
             if let Some(line_number) = self.line_number {
-                write!(f, ", Line {line_number}")?;
+                write!(f, ":{}", style(line_number).yellow().bold())?;
             }
         }
+
+        // Show function name in green
         if let Some(function_name) = self.function_name.as_deref() {
-            write!(f, " - function '{function_name}'")?;
+            write!(f, " in {}", style(function_name).green())?;
         }
+
         Ok(())
     }
 }

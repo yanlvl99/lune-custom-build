@@ -408,6 +408,165 @@ pub async fn run_update() -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
+/// Uninstall packages (supports multiple packages).
+pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
+    println!("{}", style("Lune Package Uninstaller").cyan().bold());
+
+    if packages.is_empty() {
+        println!(
+            "{} No packages specified. Usage: lune --uninstall <pkg1> [pkg2] ...",
+            style("[WARN]").yellow()
+        );
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let cwd = std::env::current_dir()?;
+    let packages_dir = cwd.join("lune_packages");
+    let config_path = cwd.join("lune.config.json");
+    let luaurc_path = cwd.join(".luaurc");
+
+    let mut uninstalled_count = 0;
+
+    for pkg_name in &packages {
+        println!("  {} {}", style("→").cyan(), style(pkg_name).bold());
+
+        let pkg_dir = packages_dir.join(pkg_name);
+        if pkg_dir.exists() {
+            std::fs::remove_dir_all(&pkg_dir)?;
+            println!("    {} Removed directory", style("✓").green());
+            uninstalled_count += 1;
+        } else {
+            println!("    {} Package not found", style("⚠").yellow());
+        }
+    }
+
+    // Update lune.config.json
+    if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path)?;
+        let mut config: LuneConfig = serde_json::from_str(&content).unwrap_or_default();
+        config.packages.retain(|p| !packages.contains(&p.name));
+        std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
+        println!("{} Updated lune.config.json", style("[OK]").green());
+    }
+
+    // Update .luaurc
+    if luaurc_path.exists() {
+        let content = std::fs::read_to_string(&luaurc_path)?;
+        let mut luaurc: LuauRc = serde_json::from_str(&content).unwrap_or_default();
+        for pkg_name in &packages {
+            luaurc.aliases.remove(pkg_name);
+        }
+        std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
+        println!("{} Updated .luaurc", style("[OK]").green());
+    }
+
+    println!(
+        "\n{} {} package(s) uninstalled!",
+        style("✓").green().bold(),
+        uninstalled_count
+    );
+
+    Ok(ExitCode::SUCCESS)
+}
+
+/// List installed packages.
+pub fn run_list_packages() -> Result<ExitCode> {
+    println!("{}", style("Installed Packages").cyan().bold());
+
+    let cwd = std::env::current_dir()?;
+    let packages_dir = cwd.join("lune_packages");
+
+    if !packages_dir.exists() {
+        println!("{} No packages installed", style("[INFO]").blue());
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let mut count = 0;
+    if let Ok(entries) = std::fs::read_dir(&packages_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let pkg_name = entry.file_name().to_string_lossy().to_string();
+                let pkg_info_path = entry.path().join("lune-pkg.json");
+
+                if pkg_info_path.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&pkg_info_path) {
+                        if let Ok(info) = serde_json::from_str::<LunePkgInfo>(&content) {
+                            println!(
+                                "  {} {}@{}",
+                                style("•").cyan(),
+                                style(&info.name).bold(),
+                                style(&info.version).dim()
+                            );
+                            count += 1;
+                            continue;
+                        }
+                    }
+                }
+                // Fallback if no lune-pkg.json
+                println!("  {} {}", style("•").cyan(), style(&pkg_name).bold());
+                count += 1;
+            }
+        }
+    }
+
+    if count == 0 {
+        println!("{} No packages installed", style("[INFO]").blue());
+    } else {
+        println!("\n{} {} package(s) installed", style("Total:").dim(), count);
+    }
+
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Show package info.
+pub fn run_package_info(name: &str) -> Result<ExitCode> {
+    println!("{}", style(format!("Package: {}", name)).cyan().bold());
+
+    let cwd = std::env::current_dir()?;
+    let pkg_dir = cwd.join("lune_packages").join(name);
+    let pkg_info_path = pkg_dir.join("lune-pkg.json");
+
+    if !pkg_dir.exists() {
+        println!(
+            "{} Package '{}' not installed",
+            style("[ERROR]").red(),
+            name
+        );
+        return Ok(ExitCode::FAILURE);
+    }
+
+    if pkg_info_path.exists() {
+        let content = std::fs::read_to_string(&pkg_info_path)?;
+        let info: LunePkgInfo = serde_json::from_str(&content)?;
+
+        println!("  {} {}", style("Name:").dim(), info.name);
+        println!("  {} {}", style("Version:").dim(), info.version);
+        if let Some(desc) = &info.description {
+            println!("  {} {}", style("Description:").dim(), desc);
+        }
+        println!("  {} {}", style("Repository:").dim(), info.repository);
+    } else {
+        println!("  {} {}", style("Name:").dim(), name);
+        println!("  {} No metadata available", style("Version:").dim());
+    }
+
+    // Show files
+    println!("\n  {}:", style("Files").dim());
+    if let Ok(entries) = std::fs::read_dir(&pkg_dir) {
+        for entry in entries.flatten() {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let is_dir = entry.path().is_dir();
+            if is_dir {
+                println!("    {} {}/", style("📁").dim(), file_name);
+            } else {
+                println!("    {} {}", style("📄").dim(), file_name);
+            }
+        }
+    }
+
+    Ok(ExitCode::SUCCESS)
+}
+
 /// Install a single package via zip download with optional version.
 async fn install_package_with_version(
     name: &str,

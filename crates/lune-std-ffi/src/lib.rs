@@ -16,10 +16,12 @@
 
 use mlua::prelude::*;
 
+mod callback;
 mod caller;
 mod library;
 mod types;
 
+pub use callback::FfiCallback;
 pub use library::{BoundFunction, NativeLibrary};
 pub use types::{Buffer, CType};
 
@@ -103,6 +105,19 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
     exports.set(
         "cdef",
         lua.create_function(|_, _def: String| -> LuaResult<()> { Ok(()) })?,
+    )?;
+
+    // ffi.callback(fn, retType, argTypes) -> FfiCallback
+    exports.set(
+        "callback",
+        lua.create_function(
+            |lua, (func, ret_type, arg_types): (LuaFunction, CType, LuaTable)| {
+                let arg_types: Vec<CType> = arg_types
+                    .sequence_values::<CType>()
+                    .collect::<LuaResult<Vec<_>>>()?;
+                callback::create_callback(lua, func, ret_type, arg_types)
+            },
+        )?,
     )?;
 
     Ok(exports)

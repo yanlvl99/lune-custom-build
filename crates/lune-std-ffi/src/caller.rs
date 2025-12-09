@@ -218,11 +218,9 @@ pub fn dynamic_call(
     args: Vec<LuaValue>,
 ) -> LuaResult<LuaValue> {
     if args.len() != arg_types.len() {
-        return Err(LuaError::external(format!(
-            "Expected {} arguments, got {}",
-            arg_types.len(),
-            args.len()
-        )));
+        let msg = format!("Expected {} arguments, got {}", arg_types.len(), args.len());
+        eprintln!("[FFI ERROR] Argument count mismatch: {}", msg);
+        return Err(LuaError::external(msg));
     }
 
     // Convert types
@@ -239,7 +237,16 @@ pub fn dynamic_call(
     let arg_values: Vec<ArgValue> = args
         .into_iter()
         .zip(arg_types.iter())
-        .map(|(v, t)| lua_to_arg(lua, v, *t))
+        .enumerate()
+        .map(|(i, (v, t))| {
+            lua_to_arg(lua, v.clone(), *t).map_err(|e| {
+                eprintln!(
+                    "[FFI ERROR] Argument {} conversion failed (expected {:?}): {}",
+                    i, t, e
+                );
+                e
+            })
+        })
         .collect::<LuaResult<Vec<_>>>()?;
 
     let ffi_args: Vec<Arg> = arg_values.iter().map(ArgValue::as_arg).collect();

@@ -25,9 +25,21 @@ pub struct Cli {
     #[arg(short, long, num_args = 0..)]
     pub install: Option<Vec<String>>,
 
+    /// Uninstall packages (supports multiple packages)
+    #[arg(long = "uninstall", num_args = 1..)]
+    pub uninstall: Option<Vec<String>>,
+
     /// Update all packages to latest versions
     #[arg(long = "updpkg")]
     pub update_packages: bool,
+
+    /// List installed packages
+    #[arg(long = "listpkg")]
+    pub list_packages: bool,
+
+    /// Show package info
+    #[arg(long = "info")]
+    pub package_info: Option<String>,
 
     /// Script file to run
     #[arg(index = 1)]
@@ -55,7 +67,10 @@ impl Default for Cli {
         Self {
             init: false,
             install: None,
+            uninstall: None,
             update_packages: false,
+            list_packages: false,
+            package_info: None,
             script: None,
             script_args: Vec::new(),
             list: false,
@@ -95,7 +110,7 @@ impl Cli {
     }
 
     pub async fn run(self) -> Result<ExitCode> {
-        // Priority: --init > --install > --list > --build > --repl > script
+        // Priority: --init > --install > --uninstall > --updpkg > --listpkg > --info > --list > --build > --repl > script
 
         // Mode: Init project
         if self.init {
@@ -107,12 +122,27 @@ impl Cli {
             return installer::run_install(packages).await;
         }
 
+        // Mode: Uninstall packages
+        if let Some(packages) = self.uninstall {
+            return installer::run_uninstall(packages).await;
+        }
+
         // Mode: Update packages
         if self.update_packages {
             return installer::run_update().await;
         }
 
-        // Mode: List
+        // Mode: List installed packages
+        if self.list_packages {
+            return installer::run_list_packages();
+        }
+
+        // Mode: Package info
+        if let Some(name) = self.package_info {
+            return installer::run_package_info(&name);
+        }
+
+        // Mode: List scripts
         if self.list {
             return ListCommand {}.run().await;
         }
