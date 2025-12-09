@@ -94,7 +94,7 @@ impl Cli {
 
         // Mode: Init project
         if self.init {
-            return installer::run_init().await;
+            return installer::run_init();
         }
 
         // Mode: Installation

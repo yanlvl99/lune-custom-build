@@ -37,7 +37,7 @@ struct LuauRc {
 }
 
 /// Initialize a new Lune project.
-pub async fn run_init() -> Result<ExitCode> {
+pub fn run_init() -> Result<ExitCode> {
     println!("{}", style("Lune Project Initializer").cyan().bold());
 
     let cwd = std::env::current_dir()?;
@@ -56,13 +56,30 @@ pub async fn run_init() -> Result<ExitCode> {
         println!("{} Created lune.config.json", style("[OK]").green());
     }
 
-    // Create .luaurc
+    // Create .luaurc with @lune alias
     if luaurc_path.exists() {
-        println!("{} .luaurc already exists", style("[SKIP]").yellow());
+        // Update existing .luaurc to include @lune alias if missing
+        let content = std::fs::read_to_string(&luaurc_path)?;
+        let mut luaurc = serde_json::from_str::<LuauRc>(&content).unwrap_or_default();
+        if !luaurc.aliases.contains_key("lune") {
+            luaurc
+                .aliases
+                .insert("lune".to_owned(), "./types/".to_owned());
+            std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
+            println!("{} Updated .luaurc with @lune alias", style("[OK]").green());
+        } else {
+            println!(
+                "{} .luaurc already has @lune alias",
+                style("[SKIP]").yellow()
+            );
+        }
     } else {
-        let luaurc = LuauRc::default();
+        let mut luaurc = LuauRc::default();
+        luaurc
+            .aliases
+            .insert("lune".to_owned(), "./types/".to_owned());
         std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
-        println!("{} Created .luaurc", style("[OK]").green());
+        println!("{} Created .luaurc with @lune alias", style("[OK]").green());
     }
 
     // Create lune_packages directory

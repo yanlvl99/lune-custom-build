@@ -1,18 +1,20 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" 
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  
-  <Package Name="Lune Custom Build"
-           Manufacturer="yanlvl99"
-           Version="0.10.5"
-           UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
-           Language="1033"
-           Scope="perMachine" 
-           InstallerVersion="500"
-           Compressed="yes">
-
+<Wix
+  xmlns="http://wixtoolset.org/schemas/v4/wxs"
+  xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+>
+  <Package
+    Name="Lune Custom Build"
+    Manufacturer="yanlvl99"
+    Version="0.10.6"
+    UpgradeCode="6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D"
+    Language="1033"
+    Scope="perMachine"
+    InstallerVersion="500"
+    Compressed="yes"
+  >
     <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="yes" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
-    
+
     <Icon Id="LuneIcon" SourceFile="lune.ico" />
     <Property Id="ARPPRODUCTICON" Value="LuneIcon" />
 
@@ -24,43 +26,104 @@
     <ui:WixUI Id="WixUI_InstallDir" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLFOLDER" Name="Lune Custom Build">
-            <Directory Id="DOCFOLDER" Name="docs" />
-        </Directory>
+      <Directory Id="INSTALLFOLDER" Name="Lune Custom Build">
+        <Directory Id="DOCFOLDER" Name="docs" />
+      </Directory>
     </StandardDirectory>
-    
+
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="AppProgramsFolder" Name="Lune Custom Build" />
     </StandardDirectory>
 
-    <Component Id="LuneExe" Directory="INSTALLFOLDER" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+    <Component
+      Id="LuneExe"
+      Directory="INSTALLFOLDER"
+      Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+    >
       <File Id="LuneExeFile" Source="lune.exe" KeyPath="yes" Checksum="yes" />
       <RegistryKey Root="HKLM" Key="Software\yanlvl99\Lune">
-        <RegistryValue Name="Version" Value="0.10.5" Type="string" KeyPath="no" />
-        <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" KeyPath="no" />
+        <RegistryValue
+          Name="Version"
+          Value="0.10.6"
+          Type="string"
+          KeyPath="no"
+        />
+        <RegistryValue
+          Name="InstallDir"
+          Value="[INSTALLFOLDER]"
+          Type="string"
+          KeyPath="no"
+        />
       </RegistryKey>
     </Component>
 
-    <Component Id="FileAssoc" Directory="INSTALLFOLDER" Guid="F6789ABC-DEF0-1234-5678-90ABCDEF1234">
+    <Component
+      Id="FileAssoc"
+      Directory="INSTALLFOLDER"
+      Guid="F6789ABC-DEF0-1234-5678-90ABCDEF1234"
+    >
       <ProgId Id="LuneScript" Description="Lune Script" Icon="LuneExeFile">
         <Extension Id="luau" ContentType="text/plain">
-          <Verb Id="open" TargetFile="LuneExeFile" Command="Run" Argument='"%1" %*' />
+          <Verb
+            Id="open"
+            TargetFile="LuneExeFile"
+            Command="Run"
+            Argument='"%1" %*'
+          />
         </Extension>
       </ProgId>
-      <RegistryValue Root="HKLM" Key="Software\yanlvl99\Lune" Name="Assoc" Value="1" Type="integer" KeyPath="yes" />
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\yanlvl99\Lune"
+        Name="Assoc"
+        Value="1"
+        Type="integer"
+        KeyPath="yes"
+      />
     </Component>
 
-    <Component Id="PathSystem" Directory="INSTALLFOLDER" Guid="B2C3D4E5-F678-90AB-CDEF-123456789ABC">
-      <Environment Id="EnvPathSys" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="yes" />
+    <Component
+      Id="PathSystem"
+      Directory="INSTALLFOLDER"
+      Guid="B2C3D4E5-F678-90AB-CDEF-123456789ABC"
+    >
+      <Environment
+        Id="EnvPathSys"
+        Name="PATH"
+        Value="[INSTALLFOLDER]"
+        Part="last"
+        Action="set"
+        System="yes"
+      />
     </Component>
 
-    <Component Id="Shortcuts" Directory="AppProgramsFolder" Guid="D4E5F678-90AB-CDEF-1234-567890ABCDEF">
-      <Shortcut Id="ExeSc" Name="Lune Custom Build" Target="[INSTALLFOLDER]lune.exe" Icon="LuneIcon" />
+    <Component
+      Id="Shortcuts"
+      Directory="AppProgramsFolder"
+      Guid="D4E5F678-90AB-CDEF-1234-567890ABCDEF"
+    >
+      <Shortcut
+        Id="ExeSc"
+        Name="Lune Custom Build"
+        Target="[INSTALLFOLDER]lune.exe"
+        Icon="LuneIcon"
+      />
       <RemoveFolder Id="CleanSc" On="uninstall" />
-      <RegistryValue Root="HKLM" Key="Software\yanlvl99\Lune" Name="Sc" Value="1" Type="integer" KeyPath="yes" />
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\yanlvl99\Lune"
+        Name="Sc"
+        Value="1"
+        Type="integer"
+        KeyPath="yes"
+      />
     </Component>
 
-    <Component Id="Docs" Directory="DOCFOLDER" Guid="E5F67890-ABCD-EF12-3456-7890ABCDEF12">
+    <Component
+      Id="Docs"
+      Directory="DOCFOLDER"
+      Guid="E5F67890-ABCD-EF12-3456-7890ABCDEF12"
+    >
       <File Source="docs/README.md" KeyPath="yes" />
     </Component>
 
@@ -71,6 +134,5 @@
       <ComponentRef Id="Shortcuts" />
       <ComponentRef Id="PathSystem" />
     </Feature>
-
   </Package>
-</Wix>
+</Wix>;
