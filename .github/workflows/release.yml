@@ -70,6 +70,37 @@ jobs:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
+  # --- NOVO JOB PARA ANDROID (TERMUX) ---
+  build-android:
+    name: Build Android (Termux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Install Cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build for Android
+        run: cross build --release --target aarch64-linux-android
+
+      - name: Package Android
+        run: |
+          cd target/aarch64-linux-android/release
+          tar -czf lune-android-aarch64.tar.gz lune
+          mv lune-android-aarch64.tar.gz ../../../
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lune-android-aarch64.tar.gz
+          path: lune-android-aarch64.tar.gz
+  # ---------------------------------------
+
   msi:
     name: Build Windows MSI Installer
     runs-on: windows-latest
@@ -144,8 +175,7 @@ jobs:
           $dialog.Save("dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
           $g2.Dispose(); $dialog.Dispose()
 
-          # === 4. CRIAR O ARQUIVO WXS CORRIGIDO (SOBRESCREVE O DO REPO) ===
-          # Isso corrige os erros WIX0045 e WIX0005 que você teve.
+          # === 4. CRIAR O ARQUIVO WXS CORRIGIDO ===
           $wxsContent = @"
           <Wix xmlns='http://wixtoolset.org/schemas/v4/wxs' xmlns:ui='http://wixtoolset.org/schemas/v4/wxs/ui'>
             <Package Name='Lune Custom Build' Manufacturer='yanlvl99' Version='0.10.7' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
@@ -234,7 +264,8 @@ jobs:
 
   release:
     name: Create Release
-    needs: [build, msi]
+    # Adicionei 'build-android' na lista de dependências abaixo
+    needs: [build, build-android, msi]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -266,7 +297,8 @@ jobs:
             |----------|------|
             | **Windows Installer** | `lune-installer.msi` (recommended) |
             | Windows ZIP | `lune-windows-x86_64.zip` |
-            | Linux | `lune-linux-x86_64.tar.gz` |
+            | Linux (x64) | `lune-linux-x86_64.tar.gz` |
+            | Android (Termux) | `lune-android-aarch64.tar.gz` |
             | macOS Intel | `lune-macos-x86_64.tar.gz` |
             | macOS ARM | `lune-macos-aarch64.tar.gz` |
 
