@@ -369,6 +369,7 @@ impl Runtime {
         }
 
         // Enable / disable the JIT as requested, before loading anything
+        #[cfg(feature = "luau-jit")]
         self.lua.enable_jit(self.jit.enabled());
 
         // Load our "main" thread

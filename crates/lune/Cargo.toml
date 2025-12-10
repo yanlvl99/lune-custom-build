@@ -18,7 +18,13 @@ name = "lune"
 path = "src/lib.rs"
 
 [features]
-default = ["std", "cli"]
+default = ["std", "cli", "luau-jit"]
+
+# Android mode: disables JIT and FFI (not supported on Android cross-compile)
+android = []
+
+# Luau JIT for better performance (not available on Android)
+luau-jit = ["mlua-luau-scheduler/luau-jit", "mlua/luau-jit"]
 
 std-datetime = ["dep:lune-std", "lune-std/datetime"]
 std-ffi = ["dep:lune-std", "lune-std/ffi"]
@@ -48,6 +54,21 @@ std = [
     "std-task",
 ]
 
+# std without ffi (for Android)
+std-android = [
+    "std-datetime",
+    "std-fs",
+    "std-luau",
+    "std-net",
+    "std-process",
+    "std-regex",
+    "std-roblox",
+    "std-serde",
+    "std-sql",
+    "std-stdio",
+    "std-task",
+]
+
 cli = ["dep:clap", "dep:rustyline", "dep:zip", "dep:lune-std-net", "dep:git2", "dep:reqwest", "dep:pathdiff", "dep:semver"]
 
 [lints]
@@ -56,10 +77,6 @@ workspace = true
 [dependencies]
 mlua = { version = "0.11.4", features = ["luau"] }
 mlua-luau-scheduler = { version = "0.2.3", path = "../mlua-luau-scheduler" }
-
-# Enable luau-jit on non-Android platforms for better performance
-[target.'cfg(not(target_os = "android"))'.dependencies]
-mlua-luau-scheduler = { version = "0.2.3", path = "../mlua-luau-scheduler", features = ["luau-jit"] }
 
 anyhow = "1.0"
 console = "0.16"
