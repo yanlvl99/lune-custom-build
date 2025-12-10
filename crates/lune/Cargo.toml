@@ -24,7 +24,7 @@ default = ["std", "cli", "luau-jit"]
 android = []
 
 # Luau JIT for better performance (not available on Android)
-luau-jit = ["mlua-luau-scheduler/luau-jit", "mlua/luau-jit"]
+luau-jit = ["mlua-luau-scheduler/luau-jit", "mlua/luau-jit", "lune-std/luau-jit"]
 
 std-datetime = ["dep:lune-std", "lune-std/datetime"]
 std-ffi = ["dep:lune-std", "lune-std/ffi"]

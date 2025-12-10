@@ -2,7 +2,9 @@
 
 use mlua::prelude::*;
 
-use lune_utils::{TableBuilder, jit::JitEnablement};
+use lune_utils::TableBuilder;
+#[cfg(feature = "luau-jit")]
+use lune_utils::jit::JitEnablement;
 
 mod options;
 
@@ -49,6 +51,7 @@ fn load_source(
     let mut chunk = lua
         .load(source.as_bytes().to_vec())
         .set_name(options.debug_name);
+    #[allow(unused_variables)]
     let env_changed = options.environment.is_some();
 
     if let Some(custom_environment) = options.environment {
@@ -81,8 +84,12 @@ fn load_source(
 
     // Enable JIT if codegen is enabled and the environment hasn't
     // changed, otherwise disable JIT since it'll fall back anyways
+    #[cfg(feature = "luau-jit")]
     lua.enable_jit(options.codegen_enabled && !env_changed);
+
     let function = chunk.into_function()?;
+
+    #[cfg(feature = "luau-jit")]
     lua.enable_jit(
         lua.app_data_ref::<JitEnablement>()
             .ok_or(LuaError::runtime(
