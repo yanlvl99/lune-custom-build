@@ -71,7 +71,7 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
                 let slice = unsafe { std::slice::from_raw_parts(cptr.cast::<u8>(), len) };
                 Ok(LuaValue::String(lua.create_string(slice)?))
             } else {
-                let cstr = unsafe { std::ffi::CStr::from_ptr(cptr) };
+                let cstr = unsafe { std::ffi::CStr::from_ptr(cptr as *const _) };
                 Ok(LuaValue::String(lua.create_string(cstr.to_bytes())?))
             }
         })?,

@@ -20,37 +20,66 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: lune.exe
             archive: lune-windows-x86_64.zip
+            use_cross: false
 
+          # Linux PC
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: lune
             archive: lune-linux-x86_64.tar.gz
+            use_cross: false
 
+          # Android (Termux) - ADICIONADO AQUI
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+            artifact: lune
+            archive: lune-android-aarch64.tar.gz
+            use_cross: true
+
+          # macOS Intel
           - os: macos-14
             target: x86_64-apple-darwin
             artifact: lune
             archive: lune-macos-x86_64.tar.gz
+            use_cross: false
 
+          # macOS Apple Silicon
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: lune
             archive: lune-macos-aarch64.tar.gz
+            use_cross: false
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
+      # Instala o Cross APENAS se for necessário (Android)
+      - name: Install Cross
+        if: matrix.use_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      # Compila usando Cross (Android) OU Cargo (PC/Mac)
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }} 2>&1
+        shell: bash
+        run: |
+          if [ "${{ matrix.use_cross }}" == "true" ]; then
+            cross build --release --target ${{ matrix.target }} 2>&1
+          else
+            cargo build --release --target ${{ matrix.target }} 2>&1
+          fi
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -87,47 +116,34 @@ jobs:
       - name: Prepare Files
         shell: pwsh
         run: |
-          # Extrai o ZIP
           Expand-Archive -Path installer_temp/lune-windows-x86_64.zip -DestinationPath installer_temp/
-          # Garante que a pasta installer existe
           if (-not (Test-Path "installer")) { New-Item -ItemType Directory -Path "installer" }
-          # Move o executável
           Copy-Item installer_temp/lune.exe -Destination installer/lune.exe -Force
-          # Move o ícone se existir
           if (Test-Path "assets/logo/no-tilt.ico") {
             Copy-Item assets/logo/no-tilt.ico -Destination installer/lune.ico -Force
           }
 
-      - name: Generate All Assets (WXS, Docs, License, Images)
+      - name: Generate All Assets
         shell: pwsh
         working-directory: installer
         run: |
-          # === 1. CRIAR PASTA DOCS E ARQUIVOS ===
           New-Item -ItemType Directory -Path "docs" -Force | Out-Null
-
           if (Test-Path "../README.md") { Copy-Item "../README.md" -Destination "docs/README.md" -Force }
           else { Set-Content "docs/README.md" "# Lune Custom Build" }
-
           if (Test-Path "../LICENSE") { Copy-Item "../LICENSE" -Destination "docs/LICENSE.txt" -Force }
           else { Set-Content "docs/LICENSE.txt" "MPL 2.0" }
 
-          # === 2. CRIAR LICENÇA RTF ===
           $rtfHeader = "{\rtf1\ansi\deff0\nouicompat{\fonttbl{\f0\fnil\fcharset0 Segoe UI;}}\viewkind4\uc1 \pard\sa200\sl276\slmult1\f0\fs20\lang22 "
           $licenseText = @"
           LUNE CUSTOM BUILD - END USER LICENSE AGREEMENT
-
           This software is licensed under the Mozilla Public License 2.0.
-          (See https://mozilla.org/MPL/2.0/ for full legal text)
           "@
           $finalRtf = $rtfHeader + ($licenseText -replace "`n", "\par ") + "}"
           Set-Content "license.rtf" $finalRtf -Encoding ASCII
 
-          # === 3. CRIAR IMAGENS (ROXO CLEAN) ===
           Add-Type -AssemblyName System.Drawing
           $purple = [System.Drawing.Color]::FromArgb(255, 130, 80, 220)
           $brush = New-Object System.Drawing.SolidBrush($purple)
-
-          # Banner
           $banner = New-Object System.Drawing.Bitmap 493, 58
           $g = [System.Drawing.Graphics]::FromImage($banner)
           $g.Clear([System.Drawing.Color]::White)
@@ -136,7 +152,6 @@ jobs:
           $banner.Save("banner.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
           $g.Dispose(); $banner.Dispose()
 
-          # Dialog
           $dialog = New-Object System.Drawing.Bitmap 493, 312
           $g2 = [System.Drawing.Graphics]::FromImage($dialog)
           $g2.Clear([System.Drawing.Color]::White)
@@ -144,23 +159,18 @@ jobs:
           $dialog.Save("dialog.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
           $g2.Dispose(); $dialog.Dispose()
 
-          # === 4. CRIAR O ARQUIVO WXS CORRIGIDO (SOBRESCREVE O DO REPO) ===
-          # Isso corrige os erros WIX0045 e WIX0005 que você teve.
           $wxsContent = @"
           <Wix xmlns='http://wixtoolset.org/schemas/v4/wxs' xmlns:ui='http://wixtoolset.org/schemas/v4/wxs/ui'>
             <Package Name='Lune Custom Build' Manufacturer='yanlvl99' Version='0.10.7' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
               <MajorUpgrade Schedule='afterInstallInitialize' AllowDowngrades='yes' />
               <MediaTemplate EmbedCab='yes' CompressionLevel='high' />
-              
               <Icon Id='LuneIcon' SourceFile='lune.ico' />
               <Property Id='ARPPRODUCTICON' Value='LuneIcon' />
               <WixVariable Id='WixUILicenseRtf' Value='license.rtf' />
               <WixVariable Id='WixUIBannerBmp' Value='banner.bmp' />
               <WixVariable Id='WixUIDialogBmp' Value='dialog.bmp' />
-
               <Property Id='WIXUI_INSTALLDIR' Value='INSTALLFOLDER' />
               <ui:WixUI Id='WixUI_InstallDir' />
-
               <StandardDirectory Id='ProgramFiles64Folder'>
                 <Directory Id='INSTALLFOLDER' Name='Lune Custom Build'>
                   <Directory Id='DOCFOLDER' Name='docs' />
@@ -169,7 +179,6 @@ jobs:
               <StandardDirectory Id='ProgramMenuFolder'>
                 <Directory Id='AppProgramsFolder' Name='Lune Custom Build' />
               </StandardDirectory>
-
               <Component Id='LuneExe' Directory='INSTALLFOLDER' Guid='A1B2C3D4-E5F6-7890-ABCD-EF1234567890'>
                 <File Id='LuneExeFile' Source='lune.exe' KeyPath='yes' Checksum='yes' />
                 <RegistryKey Root='HKLM' Key='Software\yanlvl99\Lune'>
@@ -177,7 +186,6 @@ jobs:
                   <RegistryValue Name='InstallDir' Value='[INSTALLFOLDER]' Type='string' KeyPath='no' />
                 </RegistryKey>
               </Component>
-
               <Component Id='FileAssoc' Directory='INSTALLFOLDER' Guid='F6789ABC-DEF0-1234-5678-90ABCDEF1234'>
                 <ProgId Id='LuneScript' Description='Lune Script' Icon='LuneExeFile'>
                   <Extension Id='luau' ContentType='text/plain'>
@@ -186,22 +194,18 @@ jobs:
                 </ProgId>
                 <RegistryValue Root='HKLM' Key='Software\yanlvl99\Lune' Name='Assoc' Value='1' Type='integer' KeyPath='yes' />
               </Component>
-
               <Component Id='PathSystem' Directory='INSTALLFOLDER' Guid='B2C3D4E5-F678-90AB-CDEF-123456789ABC'>
                 <Environment Id='EnvPathSys' Name='PATH' Value='[INSTALLFOLDER]' Part='last' Action='set' System='yes' />
               </Component>
-
               <Component Id='Shortcuts' Directory='AppProgramsFolder' Guid='D4E5F678-90AB-CDEF-1234-567890ABCDEF'>
                 <Shortcut Id='ExeSc' Name='Lune Custom Build' Target='[INSTALLFOLDER]lune.exe' Icon='LuneIcon' />
                 <RemoveFolder Id='CleanSc' On='uninstall' />
                 <RegistryValue Root='HKLM' Key='Software\yanlvl99\Lune' Name='Sc' Value='1' Type='integer' KeyPath='yes' />
               </Component>
-
               <Component Id='Docs' Directory='DOCFOLDER' Guid='E5F67890-ABCD-EF12-3456-7890ABCDEF12'>
                 <File Source='docs/README.md' KeyPath='yes' />
                 <File Source='docs/LICENSE.txt' />
               </Component>
-
               <Feature Id='Main' Title='Lune Custom Build' Level='1'>
                 <ComponentRef Id='LuneExe' />
                 <ComponentRef Id='Docs' />
@@ -223,7 +227,6 @@ jobs:
         run: |
           wix extension add WixToolset.UI.wixext --global
           wix extension add WixToolset.Util.wixext --global
-
           wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
 
       - name: Upload MSI
@@ -253,20 +256,13 @@ jobs:
           body: |
             A standalone Luau runtime for backend and game-server development.
 
-            ### What's New in v0.10.7
-            - **FFI Callbacks**: Full callback support with `ffi.callback()` for passing Lua functions to C code
-            - **FFI listExports**: New `lib:listExports()` to list all exported functions from DLLs/shared libraries
-            - **FFI Error Handling**: Detailed error messages with `[FFI ERROR]` prefix
-            - **Package Management**: Added `--uninstall`, `--listpkg`, and `--info` commands
-            - **Improved Error Display**: Colorized error messages with `[Lune Error]` header and colored stack traces
-
             ### Downloads
-
             | Platform | File |
             |----------|------|
             | **Windows Installer** | `lune-installer.msi` (recommended) |
             | Windows ZIP | `lune-windows-x86_64.zip` |
-            | Linux | `lune-linux-x86_64.tar.gz` |
+            | Linux (x64) | `lune-linux-x86_64.tar.gz` |
+            | Android (Termux) | `lune-android-aarch64.tar.gz` |
             | macOS Intel | `lune-macos-x86_64.tar.gz` |
             | macOS ARM | `lune-macos-aarch64.tar.gz` |
 

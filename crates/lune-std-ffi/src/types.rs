@@ -201,7 +201,7 @@ impl Buffer {
                 if cptr.is_null() {
                     LuaValue::Nil
                 } else {
-                    let cstr = unsafe { std::ffi::CStr::from_ptr(cptr) };
+                    let cstr = unsafe { std::ffi::CStr::from_ptr(cptr as *const _) };
                     LuaValue::String(lua.create_string(cstr.to_bytes())?)
                 }
             }
