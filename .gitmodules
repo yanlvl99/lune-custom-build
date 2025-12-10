@@ -1,3 +1,7 @@
+[submodule "docs-fork"]
+	path = docs-fork
+	url = https://github.com/yanlvl99/lune-custom-build-doc.git
+
 [submodule "tests/roblox/rbx-test-files"]
 	path = tests/roblox/rbx-test-files
-	url = https://github.com/rojo-rbx/rbx-test-files
+	url = https://github.com/rojo-rbx/rbx-test-files.git
