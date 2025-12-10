@@ -220,7 +220,7 @@ fn call_and_convert(
             }
         }
         CType::CString => {
-            let result: *const i8 = unsafe { cif.call(code_ptr, args) };
+            let result: *const std::ffi::c_char = unsafe { cif.call(code_ptr, args) };
             if result.is_null() {
                 LuaValue::Nil
             } else {

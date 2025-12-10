@@ -96,7 +96,7 @@ unsafe extern "C" fn callback_trampoline(
                     LuaValue::LightUserData(LuaLightUserData(*(arg_ptr as *const *mut c_void)))
                 }
                 CType::CString => {
-                    let cptr = *(arg_ptr as *const *const i8);
+                    let cptr = *(arg_ptr as *const *const std::ffi::c_char);
                     if cptr.is_null() {
                         LuaValue::Nil
                     } else {
