@@ -73,7 +73,7 @@ futures-lite = "2.6"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-lune-std = { optional = true, version = "0.3.4", path = "../lune-std" }
+lune-std = { optional = true, version = "0.3.4", path = "../lune-std", default-features = false }
 lune-std-net = { optional = true, version = "0.3.4", path = "../lune-std-net" }
 lune-utils = { version = "0.3.4", path = "../lune-utils" }
 
