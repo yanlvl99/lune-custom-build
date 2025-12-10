@@ -1,106 +1,159 @@
-<table align="center" width="100%">
-  <tr>
-    <td align="center" width="40%">
-      <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="300" />
-    </td>
-    <td align="center" width="60%">
-      <h1>Lune Custom Build</h1>
-      <p>A standalone Luau runtime for <b>backend</b> and <b>game-server</b> development</p>
-      <p>
-        <a href="https://github.com/yanlvl99/lune-custom-build/releases">Download</a> ·
-        <a href="https://yanlvl99.github.io/lune-custom-build-doc/">Documentation</a>
-      </p>
-    </td>
-  </tr>
-</table>
+<div align="center">
+  <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="200" />
+  <h1>Lune Custom Build</h1>
+  <p><strong>A standalone Luau runtime for backend and game-server development</strong></p>
+  
+  [![Release](https://img.shields.io/github/v/release/yanlvl99/lune-custom-build?style=flat-square&color=C848E9)](https://github.com/yanlvl99/lune-custom-build/releases)
+  [![License](https://img.shields.io/github/license/yanlvl99/lune-custom-build?style=flat-square&color=E168FF)](LICENSE.txt)
+  [![Downloads](https://img.shields.io/github/downloads/yanlvl99/lune-custom-build/total?style=flat-square&color=9D4EDD)](https://github.com/yanlvl99/lune-custom-build/releases)
+  
+  [📦 Download](https://github.com/yanlvl99/lune-custom-build/releases) · 
+  [📚 Documentation](https://yanlvl99.github.io/lune-custom-build-doc/) ·
+  [🚀 Getting Started](https://yanlvl99.github.io/lune-custom-build-doc/getting-started/1-installation/)
+</div>
 
 ---
 
-## What is Lune Custom Build?
+## ✨ Features
 
-Lune Custom Build is a fork of [Lune](https://github.com/lune-org/lune) focused on:
+| Feature                 | Description                                     |
+| ----------------------- | ----------------------------------------------- |
+| 📦 **Package Manager**  | Built-in `--init` and `--install` commands      |
+| 🗄️ **SQL Database**     | SQLite support via `@lune/sql`                  |
+| 🔌 **UDP/TCP Sockets**  | Low-level networking for game servers           |
+| 🔧 **Extended Globals** | `math.clamp`, `math.lerp`, `uuid.v4`, `uuid.v7` |
+| 🔗 **FFI**              | Call native C libraries directly                |
+| 🏗️ **Build to EXE**     | Compile scripts to standalone executables       |
 
-- **Backend Development** - Build web servers, APIs, and microservices
-- **Game Server Development** - Create dedicated game servers with UDP/TCP support
-- **Extended APIs** - Additional utilities like SQL, extended math, UUIDs
-- **Package Manager** - Built-in package management with `--init` and `--install`
+## 🚀 Quick Start
 
-## Features
+### Installation
 
-### Package Manager
+**Windows (PowerShell):**
+
+```powershell
+irm https://yanlvl99.github.io/lune-custom-build-doc/install.ps1 | iex
+```
+
+**Manual Download:**
+Download from [Releases](https://github.com/yanlvl99/lune-custom-build/releases) and add to PATH.
+
+**From Source:**
 
 ```bash
-lune --init              # Initialize project
-lune --install lune-colors    # Install packages from registry
+cargo build --release
+```
+
+### Usage
+
+```bash
+lune script.luau           # Run a script
+lune --init                # Initialize project with LSP support
+lune --install colors      # Install package from registry
+lune --build script.luau   # Build standalone executable
+lune --repl                # Interactive REPL
+```
+
+## 📝 Examples
+
+### Hello World
+
+```lua
+print("Hello from Lune!")
+```
+
+### HTTP Server
+
+```lua
+local net = require("@lune/net")
+
+net.serve(8080, function(request)
+    return {
+        status = 200,
+        body = "Hello, World!"
+    }
+end)
 ```
 
 ### SQL Database
 
 ```lua
 local sql = require("@lune/sql")
-local db = sql.open("data.db")
-db:query("SELECT * FROM users WHERE id = ?", { userId })
+local db = sql.open("app.db")
+
+db:execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
+db:execute("INSERT INTO users (name) VALUES (?)", "John")
+
+local users = db:query("SELECT * FROM users")
+for _, user in users do
+    print(user.name)
+end
 ```
 
-### Extended Globals
-
-```lua
-math.clamp(5, 0, 10)     -- 5
-math.lerp(0, 100, 0.5)   -- 50
-uuid.v4()                -- Random UUID
-uuid.v7()                -- Time-ordered UUID
-```
-
-### UDP/TCP Sockets
+### UDP Game Server
 
 ```lua
 local net = require("@lune/net")
 local socket = net.udp.bind("0.0.0.0:27015")
-local server = net.tcp.listen("0.0.0.0:3000")
+
+while true do
+    local data, addr = socket:recv()
+    print("Received from", addr, ":", data)
+    socket:send(addr, "ACK")
+end
 ```
 
-## Installation
+### FFI (Native Libraries)
 
-Download the latest release from [Releases](https://github.com/yanlvl99/lune-custom-build/releases).
+```lua
+local ffi = require("@lune/ffi")
+local lib = ffi.open("user32")
 
-Or build from source:
+local MessageBoxA = lib:fn("MessageBoxA", ffi.types.i32, {
+    ffi.types.ptr, ffi.types.ptr, ffi.types.ptr, ffi.types.u32
+})
+
+MessageBoxA(nil, "Hello FFI!", "Lune", 0)
+```
+
+## 📦 Package Manager
+
+Initialize a new project:
 
 ```bash
-cargo build --release
+lune --init
 ```
 
-## Usage
+Install packages:
 
 ```bash
-lune script.luau         # Run a script
-lune --init              # Initialize project
-lune --install pkg       # Install package
-lune --build script.luau # Build standalone exe
-lune --repl              # Interactive REPL
+lune --install colors networking discord
 ```
 
-## Documentation
+Update packages:
 
-Full documentation at: [yanlvl99.github.io/lune-custom-build-doc](https://yanlvl99.github.io/lune-custom-build-doc/)
-
-## Package Registry
-
-Packages are registered in the `/manifest` directory. Each package has a JSON manifest:
-
-```json
-{
-  "name": "my-package",
-  "description": "Package description",
-  "repository": "https://github.com/owner/repo.git"
-}
+```bash
+lune --updpkg
 ```
 
-Version is determined by git tags (semver format).
+## 📚 Documentation
 
-## License
+Full documentation available at: **[yanlvl99.github.io/lune-custom-build-doc](https://yanlvl99.github.io/lune-custom-build-doc/)**
 
-Licensed under the Mozilla Public License 2.0 - see [LICENSE.txt](LICENSE.txt).
+- [Getting Started](https://yanlvl99.github.io/lune-custom-build-doc/getting-started/1-installation/)
+- [API Reference](https://yanlvl99.github.io/lune-custom-build-doc/api-reference/fs/)
+- [The Lune Book](https://yanlvl99.github.io/lune-custom-build-doc/the-book/1-hello-lune/)
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+## 📄 License
+
+Licensed under the [Mozilla Public License 2.0](LICENSE.txt).
 
 ---
 
-Built with ❤️ for the Luau community.
+<div align="center">
+  <sub>Built with ❤️ for the Luau community</sub>
+</div>
