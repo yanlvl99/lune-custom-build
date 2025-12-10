@@ -18,6 +18,8 @@ pub enum CType {
     U32,
     I64,
     U64,
+    ISize, // Platform-specific signed pointer-sized integer
+    USize, // Platform-specific unsigned pointer-sized integer (size_t)
     F32,
     F64,
     Pointer,
@@ -27,7 +29,7 @@ pub enum CType {
 impl CType {
     /// Parse a C type from a string
     #[allow(clippy::should_implement_trait)]
-    #[must_use] 
+    #[must_use]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "void" => Some(Self::Void),
@@ -39,7 +41,9 @@ impl CType {
             "i32" | "int32" | "int" => Some(Self::I32),
             "u32" | "uint32" | "uint" => Some(Self::U32),
             "i64" | "int64" | "long" | "longlong" => Some(Self::I64),
-            "u64" | "uint64" | "ulong" | "ulonglong" | "size_t" => Some(Self::U64),
+            "u64" | "uint64" | "ulong" | "ulonglong" => Some(Self::U64),
+            "isize" | "intptr_t" | "ptrdiff_t" | "ssize_t" => Some(Self::ISize),
+            "usize" | "size_t" | "uintptr_t" => Some(Self::USize),
             "f32" | "float" => Some(Self::F32),
             "f64" | "double" => Some(Self::F64),
             "ptr" | "pointer" | "void*" => Some(Self::Pointer),
@@ -48,18 +52,22 @@ impl CType {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn size(&self) -> usize {
         match self {
             Self::Void => 0,
             Self::Bool | Self::I8 | Self::U8 => 1,
             Self::I16 | Self::U16 => 2,
             Self::I32 | Self::U32 | Self::F32 => 4,
-            Self::I64 | Self::U64 | Self::F64 | Self::Pointer | Self::CString => 8,
+            Self::I64 | Self::U64 | Self::F64 => 8,
+            // Platform-specific sizes - correct for both 32-bit and 64-bit ARM
+            Self::ISize | Self::USize | Self::Pointer | Self::CString => {
+                std::mem::size_of::<*const ()>()
+            }
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn alignment(&self) -> usize {
         self.size().max(1)
     }
@@ -92,6 +100,8 @@ impl IntoLua for CType {
             Self::U32 => "u32",
             Self::I64 => "i64",
             Self::U64 => "u64",
+            Self::ISize => "isize",
+            Self::USize => "usize",
             Self::F32 => "f32",
             Self::F64 => "f64",
             Self::Pointer => "pointer",
@@ -110,7 +120,7 @@ pub struct Buffer {
 
 impl Buffer {
     /// Allocate a new buffer of the given size
-    #[must_use] 
+    #[must_use]
     pub fn new(size: usize) -> Self {
         let layout = Layout::from_size_align(size.max(1), 8).unwrap();
         let ptr = unsafe { alloc(layout) };
@@ -132,7 +142,7 @@ impl Buffer {
     }
 
     /// Get a pointer to the buffer
-    #[must_use] 
+    #[must_use]
     pub fn as_ptr(&self) -> *mut u8 {
         self.ptr
     }
@@ -179,6 +189,14 @@ impl Buffer {
             CType::U64 => {
                 let v = unsafe { *(ptr as *const u64) };
                 (v as f64).into_lua(lua)?
+            }
+            CType::ISize => {
+                let v = unsafe { *(ptr as *const isize) };
+                (v as i64).into_lua(lua)?
+            }
+            CType::USize => {
+                let v = unsafe { *(ptr as *const usize) };
+                (v as i64).into_lua(lua)?
             }
             CType::F32 => {
                 let v = unsafe { *(ptr as *const f32) };
@@ -259,6 +277,14 @@ impl Buffer {
             CType::U64 => {
                 let v: f64 = FromLua::from_lua(value, lua)?;
                 unsafe { *ptr.cast::<u64>() = v as u64 };
+            }
+            CType::ISize => {
+                let v: i64 = FromLua::from_lua(value, lua)?;
+                unsafe { *ptr.cast::<isize>() = v as isize };
+            }
+            CType::USize => {
+                let v: i64 = FromLua::from_lua(value, lua)?;
+                unsafe { *ptr.cast::<usize>() = v as usize };
             }
             CType::F32 => {
                 let v: f64 = FromLua::from_lua(value, lua)?;
@@ -407,11 +433,14 @@ pub fn create_types_table(lua: &Lua) -> LuaResult<LuaTable> {
     types.set("u32", "u32")?;
     types.set("i64", "i64")?;
     types.set("u64", "u64")?;
+    types.set("isize", "isize")?;
+    types.set("usize", "usize")?;
     types.set("f32", "f32")?;
     types.set("f64", "f64")?;
     types.set("pointer", "pointer")?;
     types.set("string", "string")?;
 
+    // Aliases
     types.set("int", "i32")?;
     types.set("uint", "u32")?;
     types.set("long", "i64")?;
@@ -422,8 +451,13 @@ pub fn create_types_table(lua: &Lua) -> LuaResult<LuaTable> {
     types.set("uchar", "u8")?;
     types.set("short", "i16")?;
     types.set("ushort", "u16")?;
-    types.set("size_t", "u64")?;
     types.set("ptr", "pointer")?;
+    // Platform-specific types (correct for ARM 32/64-bit)
+    types.set("size_t", "usize")?;
+    types.set("ssize_t", "isize")?;
+    types.set("intptr_t", "isize")?;
+    types.set("uintptr_t", "usize")?;
+    types.set("ptrdiff_t", "isize")?;
 
     types.set(
         "sizeof",

@@ -29,6 +29,15 @@ fn ctype_to_ffi_type(ctype: CType) -> *mut ffi_type {
         CType::U32 => addr_of_mut!(libffi::low::types::uint32),
         CType::I64 => addr_of_mut!(libffi::low::types::sint64),
         CType::U64 => addr_of_mut!(libffi::low::types::uint64),
+        // Platform-specific types for ARM compatibility
+        #[cfg(target_pointer_width = "64")]
+        CType::ISize => addr_of_mut!(libffi::low::types::sint64),
+        #[cfg(target_pointer_width = "64")]
+        CType::USize => addr_of_mut!(libffi::low::types::uint64),
+        #[cfg(target_pointer_width = "32")]
+        CType::ISize => addr_of_mut!(libffi::low::types::sint32),
+        #[cfg(target_pointer_width = "32")]
+        CType::USize => addr_of_mut!(libffi::low::types::uint32),
         CType::F32 => addr_of_mut!(libffi::low::types::float),
         CType::F64 => addr_of_mut!(libffi::low::types::double),
         CType::Pointer | CType::CString => addr_of_mut!(libffi::low::types::pointer),
@@ -79,6 +88,8 @@ unsafe extern "C" fn callback_trampoline(
                 CType::U32 => LuaValue::Integer(i64::from(*(arg_ptr as *const u32))),
                 CType::I64 => LuaValue::Integer(*(arg_ptr as *const i64)),
                 CType::U64 => LuaValue::Number(*(arg_ptr as *const u64) as f64),
+                CType::ISize => LuaValue::Integer(*(arg_ptr as *const isize) as i64),
+                CType::USize => LuaValue::Integer(*(arg_ptr as *const usize) as i64),
                 CType::F32 => LuaValue::Number(f64::from(*(arg_ptr as *const f32))),
                 CType::F64 => LuaValue::Number(*(arg_ptr as *const f64)),
                 CType::Pointer => {
@@ -138,6 +149,12 @@ unsafe extern "C" fn callback_trampoline(
                     }
                     CType::U64 => {
                         *(ret_ptr as *mut u64) = first.as_number().unwrap_or(0.0) as u64;
+                    }
+                    CType::ISize => {
+                        *(ret_ptr as *mut isize) = first.as_integer().unwrap_or(0) as isize;
+                    }
+                    CType::USize => {
+                        *(ret_ptr as *mut usize) = first.as_integer().unwrap_or(0) as usize;
                     }
                     CType::F32 => {
                         *(ret_ptr as *mut f32) = first.as_number().unwrap_or(0.0) as f32;

@@ -18,6 +18,8 @@ fn ctype_to_ffi(ctype: CType) -> FfiType {
         CType::U32 => FfiType::u32(),
         CType::I64 => FfiType::i64(),
         CType::U64 => FfiType::u64(),
+        CType::ISize => FfiType::isize(),
+        CType::USize => FfiType::usize(),
         CType::F32 => FfiType::f32(),
         CType::F64 => FfiType::f64(),
         CType::Pointer | CType::CString => FfiType::pointer(),
@@ -36,6 +38,8 @@ enum ArgValue {
     U32(u32),
     I64(i64),
     U64(u64),
+    ISize(isize),
+    USize(usize),
     F32(f32),
     F64(f64),
     Pointer(*mut c_void),
@@ -54,6 +58,8 @@ impl ArgValue {
             Self::U32(v) => Arg::new(v),
             Self::I64(v) => Arg::new(v),
             Self::U64(v) => Arg::new(v),
+            Self::ISize(v) => Arg::new(v),
+            Self::USize(v) => Arg::new(v),
             Self::F32(v) => Arg::new(v),
             Self::F64(v) => Arg::new(v),
             Self::Pointer(v) => Arg::new(v),
@@ -98,6 +104,14 @@ fn lua_to_arg(lua: &Lua, value: LuaValue, ctype: CType) -> LuaResult<ArgValue> {
         CType::U64 => {
             let v: f64 = FromLua::from_lua(value, lua)?;
             ArgValue::U64(v as u64)
+        }
+        CType::ISize => {
+            let v: i64 = FromLua::from_lua(value, lua)?;
+            ArgValue::ISize(v as isize)
+        }
+        CType::USize => {
+            let v: i64 = FromLua::from_lua(value, lua)?;
+            ArgValue::USize(v as usize)
         }
         CType::F32 => {
             let v: f64 = FromLua::from_lua(value, lua)?;
@@ -180,6 +194,14 @@ fn call_and_convert(
         CType::U64 => {
             let result: u64 = unsafe { cif.call(code_ptr, args) };
             (result as f64).into_lua(lua)?
+        }
+        CType::ISize => {
+            let result: isize = unsafe { cif.call(code_ptr, args) };
+            (result as i64).into_lua(lua)?
+        }
+        CType::USize => {
+            let result: usize = unsafe { cif.call(code_ptr, args) };
+            (result as i64).into_lua(lua)?
         }
         CType::F32 => {
             let result: f32 = unsafe { cif.call(code_ptr, args) };
