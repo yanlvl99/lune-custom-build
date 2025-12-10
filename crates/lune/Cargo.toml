@@ -21,6 +21,7 @@ path = "src/lib.rs"
 default = ["std", "cli"]
 
 std-datetime = ["dep:lune-std", "lune-std/datetime"]
+std-ffi = ["dep:lune-std", "lune-std/ffi"]
 std-fs = ["dep:lune-std", "lune-std/fs"]
 std-luau = ["dep:lune-std", "lune-std/luau"]
 std-net = ["dep:lune-std", "lune-std/net"]
@@ -28,11 +29,13 @@ std-process = ["dep:lune-std", "lune-std/process"]
 std-regex = ["dep:lune-std", "lune-std/regex"]
 std-roblox = ["dep:lune-std", "lune-std/roblox"]
 std-serde = ["dep:lune-std", "lune-std/serde"]
+std-sql = ["dep:lune-std", "lune-std/sql"]
 std-stdio = ["dep:lune-std", "lune-std/stdio"]
 std-task = ["dep:lune-std", "lune-std/task"]
 
 std = [
     "std-datetime",
+    "std-ffi",
     "std-fs",
     "std-luau",
     "std-net",
@@ -40,6 +43,7 @@ std = [
     "std-regex",
     "std-roblox",
     "std-serde",
+    "std-sql",
     "std-stdio",
     "std-task",
 ]

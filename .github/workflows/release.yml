@@ -84,7 +84,7 @@ jobs:
         run: |
           if [ "${{ matrix.use_cross }}" == "true" ]; then
             # Android build - disable ffi feature (libffi-sys doesn't support Android cross-compile)
-            cross build --release --target ${{ matrix.target }} --no-default-features --features "datetime,fs,luau,net,process,regex,roblox,serde,sql,stdio,task" 2>&1
+            cross build --release --target ${{ matrix.target }} --no-default-features --features "cli,std-datetime,std-fs,std-luau,std-net,std-process,std-regex,std-roblox,std-serde,std-sql,std-stdio,std-task" 2>&1
           else
             cargo build --release --target ${{ matrix.target }} 2>&1
           fi
