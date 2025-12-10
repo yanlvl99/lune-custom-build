@@ -84,6 +84,8 @@ jobs:
         run: |
           if [ "${{ matrix.use_cross }}" == "true" ]; then
             # Android build - use android feature (disables JIT and FFI)
+            # Link C++ statically to avoid libc++_shared.so dependency on Termux
+            export RUSTFLAGS="-C link-arg=-static-libstdc++"
             cross build --release --target ${{ matrix.target }} --no-default-features --features "android,cli,std-android" 2>&1
           else
             cargo build --release --target ${{ matrix.target }} 2>&1

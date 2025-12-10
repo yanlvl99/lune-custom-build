@@ -1,0 +1,7 @@
+[target.aarch64-linux-android]
+# Use static linking for C++ runtime to avoid libc++_shared.so dependency on Termux
+[target.aarch64-linux-android.env]
+passthrough = ["CXXFLAGS", "CFLAGS"]
+
+[build.env]
+passthrough = ["RUSTFLAGS"]
