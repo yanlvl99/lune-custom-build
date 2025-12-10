@@ -20,11 +20,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows
+          # Windows x64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: lune.exe
             archive: lune-windows-x86_64.zip
+            use_cross: false
+
+          # Windows ARM64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: lune.exe
+            archive: lune-windows-aarch64.zip
             use_cross: false
 
           # Linux PC
@@ -101,9 +108,18 @@ jobs:
           path: ${{ matrix.archive }}
 
   msi:
-    name: Build Windows MSI Installer
+    name: Build Windows MSI (${{ matrix.arch }})
     runs-on: windows-latest
     needs: build
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            artifact: lune-windows-x86_64.zip
+            msi_name: lune-installer-x64.msi
+          - arch: arm64
+            artifact: lune-windows-aarch64.zip
+            msi_name: lune-installer-arm64.msi
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,13 +127,13 @@ jobs:
       - name: Download Windows build
         uses: actions/download-artifact@v4
         with:
-          name: lune-windows-x86_64.zip
+          name: ${{ matrix.artifact }}
           path: installer_temp/
 
       - name: Prepare Files
         shell: pwsh
         run: |
-          Expand-Archive -Path installer_temp/lune-windows-x86_64.zip -DestinationPath installer_temp/
+          Expand-Archive -Path "installer_temp/${{ matrix.artifact }}" -DestinationPath installer_temp/
           if (-not (Test-Path "installer")) { New-Item -ItemType Directory -Path "installer" }
           Copy-Item installer_temp/lune.exe -Destination installer/lune.exe -Force
           if (Test-Path "assets/logo/no-tilt.ico") {
@@ -162,7 +178,7 @@ jobs:
 
           $wxsContent = @"
           <Wix xmlns='http://wixtoolset.org/schemas/v4/wxs' xmlns:ui='http://wixtoolset.org/schemas/v4/wxs/ui'>
-            <Package Name='Lune Custom Build' Manufacturer='yanlvl99' Version='0.10.7' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
+            <Package Name='Lune Custom Build (${{ matrix.arch }})' Manufacturer='yanlvl99' Version='0.10.7' UpgradeCode='6A3B4C5D-6E7F-8A9B-0C1D-2E3F4A5B6C7D' Language='1033' Scope='perMachine' InstallerVersion='500' Compressed='yes'>
               <MajorUpgrade Schedule='afterInstallInitialize' AllowDowngrades='yes' />
               <MediaTemplate EmbedCab='yes' CompressionLevel='high' />
               <Icon Id='LuneIcon' SourceFile='lune.ico' />
@@ -228,13 +244,13 @@ jobs:
         run: |
           wix extension add WixToolset.UI.wixext --global
           wix extension add WixToolset.Util.wixext --global
-          wix build lune.wxs -o lune-installer.msi -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
+          wix build lune.wxs -o ${{ matrix.msi_name }} -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
 
       - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:
-          name: lune-installer.msi
-          path: installer/lune-installer.msi
+          name: ${{ matrix.msi_name }}
+          path: installer/${{ matrix.msi_name }}
 
   release:
     name: Create Release
@@ -257,15 +273,24 @@ jobs:
           body: |
             A standalone Luau runtime for backend and game-server development.
 
+            ### Quick Install (PowerShell)
+            ```powershell
+            irm https://raw.githubusercontent.com/yanlvl99/lune-custom-build/main/installer/install.ps1 | iex
+            ```
+
             ### Downloads
             | Platform | File |
             |----------|------|
-            | **Windows Installer** | `lune-installer.msi` (recommended) |
-            | Windows ZIP | `lune-windows-x86_64.zip` |
+            | **Windows Installer (x64)** | `lune-installer-x64.msi` |
+            | **Windows Installer (ARM64)** | `lune-installer-arm64.msi` |
+            | Windows x64 (ZIP) | `lune-windows-x86_64.zip` |
+            | Windows ARM64 (ZIP) | `lune-windows-aarch64.zip` |
             | Linux (x64) | `lune-linux-x86_64.tar.gz` |
-            | Android (Termux) | `lune-android-aarch64.tar.gz` |
+            | Android (Termux)* | `lune-android-aarch64.tar.gz` |
             | macOS Intel | `lune-macos-x86_64.tar.gz` |
             | macOS ARM | `lune-macos-aarch64.tar.gz` |
+
+            > *Android build does not include FFI module (libffi not supported on Android cross-compile)
 
             ### Install with Rokit
             ```bash
