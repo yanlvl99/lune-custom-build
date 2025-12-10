@@ -31,7 +31,7 @@ Lune Custom Build is a fork of [Lune](https://github.com/lune-org/lune) focused 
 
 ```bash
 lune --init              # Initialize project
-lune --install colors    # Install packages from registry
+lune --install lune-colors    # Install packages from registry
 ```
 
 ### SQL Database
