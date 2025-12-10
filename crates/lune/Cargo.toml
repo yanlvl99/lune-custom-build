@@ -57,6 +57,10 @@ workspace = true
 mlua = { version = "0.11.4", features = ["luau"] }
 mlua-luau-scheduler = { version = "0.2.3", path = "../mlua-luau-scheduler" }
 
+# Enable luau-jit on non-Android platforms for better performance
+[target.'cfg(not(target_os = "android"))'.dependencies]
+mlua-luau-scheduler = { version = "0.2.3", path = "../mlua-luau-scheduler", features = ["luau-jit"] }
+
 anyhow = "1.0"
 console = "0.16"
 dialoguer = "0.12"
