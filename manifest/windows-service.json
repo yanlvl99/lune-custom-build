@@ -3,6 +3,6 @@
   "description": "Serviço de automação de janelas para Lune usando User32",
   "repository": "https://github.com/yanlvl99/windows-service.git",
   "dependencies": {
-    "ffi-like-roblox"
+    "ffi-like-roblox":"latest"
   }
 }
