@@ -1,8 +1,8 @@
 {
-  "name": "@yanlvl99/windows-service",
-  "description": "Serviço de janelas para Lune",
+  "name": "windows-service",
+  "description": "Serviço de automação de janelas para Lune usando User32",
   "repository": "https://github.com/yanlvl99/windows-service.git",
   "dependencies": {
-    "@ffi-like-roblox": "latest"
+    "ffi-like-roblox": "github:yanlvl99/ffi-like-roblox"
   }
 }
