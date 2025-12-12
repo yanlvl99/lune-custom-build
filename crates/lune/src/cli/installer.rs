@@ -131,14 +131,24 @@ pub fn run_init() -> Result<ExitCode> {
     }
 
     if generated_count > 0 {
-        println!("{:>12} {} type definitions", style("Generated").green().bold(), generated_count);
+        println!(
+            "{:>12} {} type definitions",
+            style("Generated").green().bold(),
+            generated_count
+        );
     } else {
-        println!("{:>12} Type definitions (already exist)", style("Skipped").yellow().bold());
+        println!(
+            "{:>12} Type definitions (already exist)",
+            style("Skipped").yellow().bold()
+        );
     }
 
     // Create lune.config.json
     if config_path.exists() {
-        println!("{:>12} lune.config.json (already exists)", style("Skipped").yellow().bold());
+        println!(
+            "{:>12} lune.config.json (already exists)",
+            style("Skipped").yellow().bold()
+        );
     } else {
         let config = LuneConfig::default();
         std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
@@ -158,9 +168,15 @@ pub fn run_init() -> Result<ExitCode> {
             .aliases
             .insert("lune".to_owned(), typedefs_path.clone());
         std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
-        println!("{:>12} .luaurc with @lune alias", style("Updated").green().bold());
+        println!(
+            "{:>12} .luaurc with @lune alias",
+            style("Updated").green().bold()
+        );
     } else {
-        println!("{:>12} .luaurc alias (already exists)", style("Skipped").yellow().bold());
+        println!(
+            "{:>12} .luaurc alias (already exists)",
+            style("Skipped").yellow().bold()
+        );
     }
 
     // Create lune_packages directory
@@ -170,27 +186,29 @@ pub fn run_init() -> Result<ExitCode> {
         println!("{:>12} lune_packages/", style("Created").green().bold());
     }
 
-    println!("\n{:>12} Project ready. Use 'lune --install <pkg>'", style("Success").green().bold());
+    println!(
+        "\n{:>12} Project ready. Use 'lune --install <pkg>'",
+        style("Success").green().bold()
+    );
 
     Ok(ExitCode::SUCCESS)
 }
 
 // SUBSTITUA A FUNÇÃO run_install POR ESTA:
 pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
-    // Cabeçalho bonito
     println!("\n{}", style("  Lune Package Installer").bold());
     println!("{}", style("  ======================").dim());
 
     let cwd = std::env::current_dir()?;
     let packages_dir = cwd.join("lune_packages");
 
-    // Parse args
+    // 1. Prepara a fila inicial com os argumentos do terminal
     let specs_from_args: Vec<PackageSpec> = packages
         .into_iter()
         .filter_map(|s| PackageSpec::try_from(s).ok())
         .collect();
 
-    // Determine queue
+    // 2. Se não passou argumentos, lê do lune.config.json
     let mut packages_queue: VecDeque<PackageSpec> = if specs_from_args.is_empty() {
         let config_path = cwd.join("lune.config.json");
         if config_path.exists() {
@@ -202,13 +220,17 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
             }
             VecDeque::from(config.packages)
         } else {
-            println!("{:>12} No config found. Run lune --init", style("Warn").yellow().bold());
+            println!(
+                "{:>12} No config found. Run lune --init",
+                style("Warn").yellow().bold()
+            );
             return Ok(ExitCode::SUCCESS);
         }
     } else {
         VecDeque::from(specs_from_args)
     };
-    
+
+    // Guarda quais pacotes foram pedidos explicitamente (para salvar no config depois)
     let explicit_packages: Vec<PackageSpec> = packages_queue.iter().cloned().collect();
 
     if !packages_dir.exists() {
@@ -218,44 +240,62 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
     let mut installed_paths: Vec<(String, PathBuf)> = Vec::new();
     let mut visited_packages: HashSet<String> = HashSet::new();
 
-    // LOOP
+    // === LOOP PRINCIPAL DE INSTALAÇÃO ===
     while let Some(spec) = packages_queue.pop_front() {
         if visited_packages.contains(&spec.name) {
             continue;
         }
 
-        // LOG: Resolving (Cyan)
-        println!("{:>12} {}", style("Resolving").cyan().bold(), style(&spec.name).bold());
+        // LOG: Resolving (Cyan) - Indica que estamos indo buscar o manifesto
+        println!(
+            "{:>12} {}",
+            style("Resolving").cyan().bold(),
+            style(&spec.name).bold()
+        );
 
+        // Chama a função que baixa o manifesto e o zip
         match install_package_with_version(&spec.name, spec.version.as_deref(), &packages_dir).await
         {
             Ok((path, dependencies)) => {
                 // LOG: Installed (Green)
-                println!("{:>12} {} {}\n", 
-                    style("Installed").green().bold(), 
+                println!(
+                    "{:>12} {} {}\n",
+                    style("Installed").green().bold(),
                     spec.name,
                     style(spec.version.as_deref().unwrap_or("latest")).dim()
                 );
-                
+
                 visited_packages.insert(spec.name.clone());
                 installed_paths.push((spec.name.clone(), path));
 
+                // === PROCESSAMENTO DE DEPENDÊNCIAS ===
                 if !dependencies.is_empty() {
                     for (dep_name, dep_ver) in dependencies {
                         if !visited_packages.contains(&dep_name) {
-                            // LOG: Found (Dim/Blue)
-                            println!("{:>12} dependency: {}@{}", 
-                                style("Found").blue().dim(), 
-                                dep_name, 
-                                dep_ver
-                            );
-
-                            let version_opt = if dep_ver == "latest" || dep_ver == "*" {
+                            // Lógica de limpeza:
+                            // Se a dependência vier como "github:..." (formato antigo/legado),
+                            // ignoramos e forçamos "latest" (None) para usar o manifesto do registro.
+                            // Se vier "latest" ou "*", também vira None.
+                            // Se vier "v1.2.0", respeitamos.
+                            let version_opt = if dep_ver.starts_with("github:")
+                                || dep_ver == "latest"
+                                || dep_ver == "*"
+                            {
                                 None
                             } else {
-                                Some(dep_ver)
+                                Some(dep_ver.clone())
                             };
 
+                            println!(
+                                "{:>12} dependency: {} -> {}",
+                                style("Found").blue().dim(),
+                                dep_name,
+                                style(version_opt.as_deref().unwrap_or("registry/latest"))
+                                    .yellow()
+                                    .dim()
+                            );
+
+                            // Adiciona à fila para ser processado como um pacote normal na próxima iteração
                             packages_queue.push_back(PackageSpec {
                                 name: dep_name,
                                 version: version_opt,
@@ -265,26 +305,38 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
                 }
             }
             Err(e) => {
-                // LOG: Error (Red)
-                println!("{:>12} {} -> {}", style("Failed").red().bold(), spec.name, e);
+                println!(
+                    "{:>12} {} -> {}",
+                    style("Failed").red().bold(),
+                    spec.name,
+                    e
+                );
+                // Se falhar uma dependência crítica, talvez queira dar break ou return Err
             }
         }
     }
 
-    // Config Update
-    println!("{:>12} lune.config.json", style("Updating").cyan().bold());
-    update_config(&cwd, &explicit_packages)?;
+    // Atualiza lune.config.json apenas com os pacotes raiz (explicitos)
+    if !explicit_packages.is_empty() {
+        println!("{:>12} lune.config.json", style("Updating").cyan().bold());
+        update_config(&cwd, &explicit_packages)?;
+    }
 
-    // Luaurc Update
-    println!("{:>12} .luaurc definition paths", style("Mapping").cyan().bold());
+    // Gera .luaurc com TODOS os pacotes (incluindo dependências)
+    println!(
+        "{:>12} .luaurc definition paths",
+        style("Mapping").cyan().bold()
+    );
     generate_luaurc(&cwd, &installed_paths)?;
 
-    println!("\n{:>12} All packages ready.\n", style("Finished").green().bold());
+    println!(
+        "\n{:>12} All packages ready.\n",
+        style("Finished").green().bold()
+    );
 
     Ok(ExitCode::SUCCESS)
 }
 
-/// Update all packages to latest versions.
 #[allow(clippy::unused_async)]
 pub async fn run_update() -> Result<ExitCode> {
     println!("\n{}", style("  Lune Package Updater").bold());
@@ -310,22 +362,25 @@ pub async fn run_update() -> Result<ExitCode> {
     let mut updated_count = 0;
 
     for spec in &mut config.packages {
-        // Log: Checking package...
+        // LOG: Checking (Cyan)
         println!("{:>12} {}...", style("Checking").cyan().bold(), spec.name);
 
         let pkg_dir = packages_dir.join(&spec.name);
         let pkg_info_path = pkg_dir.join("lune-pkg.json");
 
-        // Get current version
+        // 1. Descobre a versão instalada localmente
         let current_version = if pkg_info_path.exists() {
             let info_content = std::fs::read_to_string(&pkg_info_path)?;
-            let info: LunePkgInfo = serde_json::from_str(&info_content)?;
-            Some(info.version)
+            if let Ok(info) = serde_json::from_str::<LunePkgInfo>(&info_content) {
+                Some(info.version)
+            } else {
+                None
+            }
         } else {
             None
         };
 
-        // Get manifest
+        // 2. Busca o Manifesto no Registro Central (Fonte da Verdade)
         let manifest_url = format!(
             "https://raw.githubusercontent.com/{}/{}/manifest/{}.json",
             REGISTRY_REPO, REGISTRY_BRANCH, spec.name
@@ -339,28 +394,33 @@ pub async fn run_update() -> Result<ExitCode> {
             }
         };
 
-        // Resolve version
+        // 3. Resolve a versão alvo (Target)
+        // Se no lune.config tiver versão travada (@1.0.0), respeitamos.
+        // Se não (None ou "latest"), buscamos a última tag no repo do manifesto.
         let target_version = match &spec.version {
-            Some(v) => v.clone(),
-            None => resolve_latest_tag_via_api(&manifest.repository)?,
+            Some(v) if v != "latest" => v.clone(),
+            _ => resolve_latest_tag_via_api(&manifest.repository)?,
         };
 
+        // 4. Verifica se precisa atualizar
         let needs_update = current_version.as_ref() != Some(&target_version);
 
-        if needs_update {
+        if needs_update || !pkg_dir.exists() {
             let old_ver = current_version.as_deref().unwrap_or("?");
             
-            // Log: Updating v1 -> v2
+            // LOG: Updating v1 -> v2
             println!("{:>12} {} -> {}", 
                 style("Updating").green().bold(), 
                 style(old_ver).dim(), 
                 style(&target_version).yellow()
             );
 
+            // Limpa instalação antiga
             if pkg_dir.exists() {
                 std::fs::remove_dir_all(&pkg_dir)?;
             }
 
+            // 5. Baixa e Extrai (Usando o repositório do manifesto)
             match download_and_extract(
                 &manifest.repository,
                 &target_version,
@@ -368,6 +428,7 @@ pub async fn run_update() -> Result<ExitCode> {
                 &packages_dir,
             ) {
                 Ok(()) => {
+                    // Recria o lune-pkg.json local
                     let pkg_info = LunePkgInfo {
                         name: spec.name.clone(),
                         version: target_version.clone(),
@@ -377,7 +438,11 @@ pub async fn run_update() -> Result<ExitCode> {
                     let pkg_info_path = packages_dir.join(&spec.name).join("lune-pkg.json");
                     std::fs::write(&pkg_info_path, serde_json::to_string_pretty(&pkg_info)?)?;
 
-                    spec.version = Some(target_version);
+                    // Atualiza a spec no config em memória (se estava latest, agora sabemos a versão)
+                    // Mas geralmente mantemos como "None" no config se o usuário quer updates automaticos.
+                    // Aqui atualizamos apenas se quisermos "Lockar" a versão. 
+                    // Para manter comportamento "npm update", não alteramos o config se for latest.
+                    
                     updated_count += 1;
                 }
                 Err(e) => {
@@ -389,9 +454,10 @@ pub async fn run_update() -> Result<ExitCode> {
         }
     }
 
-    std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
+    // Não precisamos reescrever o lune.config.json no update, a menos que mudemos a versão travada.
+    // std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
     
-    // Regenerate .luaurc
+    // Regenera .luaurc (caso caminhos tenham mudado ou algo corrompido)
     let installed: Vec<(String, PathBuf)> = config
         .packages
         .iter()
@@ -403,15 +469,16 @@ pub async fn run_update() -> Result<ExitCode> {
 
     Ok(ExitCode::SUCCESS)
 }
-
-/// Uninstall packages (supports multiple packages).
 #[allow(clippy::unused_async)]
 pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
     println!("\n{}", style("  Lune Package Uninstaller").bold());
     println!("{}", style("  ========================").dim());
 
     if packages.is_empty() {
-        println!("{:>12} Usage: lune --uninstall <pkg>", style("Warn").yellow().bold());
+        println!(
+            "{:>12} Usage: lune --uninstall <pkg>",
+            style("Warn").yellow().bold()
+        );
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -420,40 +487,131 @@ pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
     let config_path = cwd.join("lune.config.json");
     let luaurc_path = cwd.join(".luaurc");
 
-    let mut uninstalled_count = 0;
-
-    for pkg_name in &packages {
-        let pkg_dir = packages_dir.join(pkg_name);
-        if pkg_dir.exists() {
-            std::fs::remove_dir_all(&pkg_dir)?;
-            println!("{:>12} {}", style("Removed").green().bold(), pkg_name);
-            uninstalled_count += 1;
-        } else {
-            println!("{:>12} {} not found", style("Skipped").yellow().bold(), pkg_name);
-        }
-    }
-
-    // Update config
-    if config_path.exists() {
+    // 1. Atualiza o lune.config.json removendo os pacotes solicitados
+    // Isso define quem são os novos "Roots" (Raízes)
+    let mut config = if config_path.exists() {
         let content = std::fs::read_to_string(&config_path)?;
-        let mut config: LuneConfig = serde_json::from_str(&content).unwrap_or_default();
-        config.packages.retain(|p| !packages.contains(&p.name));
+        serde_json::from_str::<LuneConfig>(&content).unwrap_or_default()
+    } else {
+        println!("{:>12} No config found", style("Error").red().bold());
+        return Ok(ExitCode::FAILURE);
+    };
+
+    let initial_count = config.packages.len();
+    config.packages.retain(|p| !packages.contains(&p.name));
+
+    if config.packages.len() == initial_count {
+        println!(
+            "{:>12} Package not found in config",
+            style("Warn").yellow().bold()
+        );
+        // Mesmo não estando no config, vamos rodar o GC pra limpar lixo se tiver
+    } else {
         std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
-        println!("{:>12} lune.config.json", style("Cleaned").cyan().bold());
+        println!(
+            "{:>12} Removed from lune.config.json",
+            style("Config").cyan().bold()
+        );
     }
 
-    // Update .luaurc
-    if luaurc_path.exists() {
-        let content = std::fs::read_to_string(&luaurc_path)?;
-        let mut luaurc: LuauRc = serde_json::from_str(&content).unwrap_or_default();
-        for pkg_name in &packages {
-            luaurc.aliases.remove(pkg_name);
+    // 2. Algoritmo de Reachability (Quem ainda é necessário?)
+    println!(
+        "{:>12} dependencies tree...",
+        style("Analyzing").cyan().bold()
+    );
+
+    let mut reachable_packages: HashSet<String> = HashSet::new();
+    let mut queue: VecDeque<String> = VecDeque::new();
+
+    // Adiciona os Roots restantes na fila
+    for pkg in &config.packages {
+        if !reachable_packages.contains(&pkg.name) {
+            reachable_packages.insert(pkg.name.clone());
+            queue.push_back(pkg.name.clone());
         }
-        std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
-        println!("{:>12} .luaurc aliases", style("Cleaned").cyan().bold());
     }
 
-    println!("\n{:>12} {} packages removed", style("Finished").green().bold(), uninstalled_count);
+    // Processa a fila para encontrar dependências recursivas (BFS)
+    while let Some(current_pkg) = queue.pop_front() {
+        // Tenta ler o manifesto do pacote instalado para ver do que ele precisa
+        let manifest_path = packages_dir.join(&current_pkg).join("lune-pkg.json");
+
+        // Estrutura temporária só pra ler deps
+        #[derive(Deserialize)]
+        struct TempManifest {
+            dependencies: Option<HashMap<String, String>>,
+        }
+
+        if manifest_path.exists()
+            && let Ok(content) = std::fs::read_to_string(manifest_path)
+            && let Ok(manifest) = serde_json::from_str::<TempManifest>(&content)
+            && let Some(deps) = manifest.dependencies
+        {
+            for (dep_name, _) in deps {
+                if !reachable_packages.contains(&dep_name) {
+                    reachable_packages.insert(dep_name.clone());
+                    queue.push_back(dep_name);
+                }
+            }
+        }
+    }
+
+    // 3. Garbage Collection (Deleta tudo que não é Reachable)
+    let mut removed_count = 0;
+
+    if packages_dir.exists() {
+        for entry in std::fs::read_dir(&packages_dir)? {
+            let entry = entry?;
+            if entry.path().is_dir() {
+                let pkg_name = entry.file_name().to_string_lossy().to_string();
+
+                // Se a pasta existe mas NÃO está na lista de necessários => DELETA
+                if !reachable_packages.contains(&pkg_name) {
+                    if let Err(e) = std::fs::remove_dir_all(entry.path()) {
+                        println!(
+                            "{:>12} Failed to remove {}: {}",
+                            style("Error").red(),
+                            pkg_name,
+                            e
+                        );
+                    } else {
+                        // Verifica se foi um dos solicitados ou uma dependência órfã
+                        if packages.contains(&pkg_name) {
+                            println!("{:>12} {}", style("Removed").green().bold(), pkg_name);
+                        } else {
+                            println!(
+                                "{:>12} {} (orphaned dependency)",
+                                style("Cleaned").magenta(),
+                                pkg_name
+                            );
+                        }
+                        removed_count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Atualiza .luaurc (Regenera baseado apenas no que sobrou)
+    if luaurc_path.exists() {
+        let remaining_installed: Vec<(String, PathBuf)> = reachable_packages
+            .iter()
+            .map(|name| (name.clone(), packages_dir.join(name)))
+            .collect();
+
+        generate_luaurc(&cwd, &remaining_installed)?;
+        println!("{:>12} .luaurc aliases", style("Sync").cyan().bold());
+    }
+
+    if removed_count == 0 {
+        println!("{:>12} Nothing to remove", style("Info").blue().bold());
+    } else {
+        println!(
+            "\n{:>12} {} packages removed total",
+            style("Finished").green().bold(),
+            removed_count
+        );
+    }
 
     Ok(ExitCode::SUCCESS)
 }
@@ -476,7 +634,7 @@ pub fn run_list_packages() -> Result<ExitCode> {
             if entry.path().is_dir() {
                 let pkg_name = entry.file_name().to_string_lossy().to_string();
                 let pkg_info_path = entry.path().join("lune-pkg.json");
-                
+
                 let version = if let Ok(content) = std::fs::read_to_string(&pkg_info_path) {
                     if let Ok(info) = serde_json::from_str::<LunePkgInfo>(&content) {
                         info.version
@@ -523,12 +681,20 @@ pub fn run_package_info(name: &str) -> Result<ExitCode> {
 
         // Alinhamento à direita das chaves
         println!("{:>12} {}", style("Name").blue().bold(), info.name);
-        println!("{:>12} {}", style("Version").blue().bold(), style(info.version).yellow());
-        
+        println!(
+            "{:>12} {}",
+            style("Version").blue().bold(),
+            style(info.version).yellow()
+        );
+
         if let Some(desc) = &info.description {
             println!("{:>12} {}", style("Description").blue().bold(), desc);
         }
-        println!("{:>12} {}", style("Repository").blue().bold(), style(info.repository).underlined());
+        println!(
+            "{:>12} {}",
+            style("Repository").blue().bold(),
+            style(info.repository).underlined()
+        );
     } else {
         println!("{:>12} No metadata found", style("Warn").yellow());
     }
@@ -538,7 +704,7 @@ pub fn run_package_info(name: &str) -> Result<ExitCode> {
         for entry in entries.flatten() {
             let file_name = entry.file_name().to_string_lossy().to_string();
             let is_dir = entry.path().is_dir();
-            
+
             if is_dir {
                 println!("{:>12} {}/", style("Dir").dim(), file_name);
             } else {
@@ -550,35 +716,43 @@ pub fn run_package_info(name: &str) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-// SUBSTITUA A FUNÇÃO install_package_with_version POR ESTA:
 #[allow(clippy::unused_async)]
 async fn install_package_with_version(
     name: &str,
     version: Option<&str>,
     packages_dir: &Path,
 ) -> Result<(PathBuf, HashMap<String, String>)> {
+    // 1. Busca o manifesto no registro central para descobrir onde fica o repositório
     let manifest_url = format!(
         "https://raw.githubusercontent.com/{}/{}/manifest/{}.json",
         REGISTRY_REPO, REGISTRY_BRANCH, name
     );
-    
-    // Silencioso aqui, só erro se falhar
+
+    // Obtém o manifesto (que contém o campo .repository real)
     let manifest = fetch_manifest(&manifest_url)?;
 
+    // 2. Resolve a tag baseada no repositório encontrado no manifesto
     let tag = match version {
-        Some(v) => v.to_string(),
-        None => resolve_latest_tag_via_api(&manifest.repository)?,
+        // Se o usuário especificou uma versão e NÃO é "latest", usamos ela direto
+        Some(v) if v != "latest" => v.to_string(),
+
+        // Se for None ou explicitamente "latest", consultamos a API do repositório do manifesto
+        _ => resolve_latest_tag_via_api(&manifest.repository)?,
     };
 
     // LOG: Downloading (Blue)
-    println!("{:>12} {} from GitHub...", style("Downloading").blue().bold(), style(&tag).yellow());
+    println!(
+        "{:>12} {} from GitHub...",
+        style("Downloading").blue().bold(),
+        style(&tag).yellow()
+    );
 
     let target_dir = packages_dir.join(name);
     if target_dir.exists() {
         std::fs::remove_dir_all(&target_dir)?;
     }
 
-    // Chama a função que extrai (e agora loga arquivos)
+    // 3. Baixa e extrai usando o repositório do manifesto e a tag decidida
     download_and_extract(&manifest.repository, &tag, name, packages_dir)?;
 
     let pkg_info = LunePkgInfo {
@@ -592,7 +766,6 @@ async fn install_package_with_version(
 
     Ok((target_dir, manifest.dependencies))
 }
-
 /// Fetch package manifest from registry.
 fn fetch_manifest(url: &str) -> Result<PackageManifest> {
     let resp = reqwest::blocking::get(url)
@@ -655,18 +828,19 @@ fn resolve_latest_tag_via_api(repo_url: &str) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("No valid semver tags found"))
 }
 
-// SUBSTITUA A FUNÇÃO download_and_extract POR ESTA:
 fn download_and_extract(
     repo_url: &str,
     tag: &str,
     pkg_name: &str,
     packages_dir: &Path,
 ) -> Result<()> {
+    // Limpeza da URL para extrair Owner/Repo
     let repo_path = repo_url
         .trim_end_matches(".git")
         .trim_start_matches("https://github.com/")
         .trim_start_matches("http://github.com/");
 
+    // Monta a URL do ZIP
     let zip_url = format!(
         "https://github.com/{}/archive/refs/tags/{}.zip",
         repo_path, tag
@@ -680,6 +854,8 @@ fn download_and_extract(
         .with_context(|| format!("Failed to download {zip_url}"))?;
 
     if !resp.status().is_success() {
+        // Fallback: Tenta baixar como branch (archive/HEAD.zip ou archive/tag.zip)
+        // O GitHub mudou algumas URLs recentemente, refs/tags é mais seguro para releases
         anyhow::bail!("Failed to download zip ({})", resp.status());
     }
 
@@ -690,6 +866,7 @@ fn download_and_extract(
     let target_dir = packages_dir.join(pkg_name);
     std::fs::create_dir_all(&target_dir)?;
 
+    // Descobre o nome da pasta raiz dentro do zip (ex: repo-main/)
     let root_prefix = archive
         .by_index(0)?
         .name()
@@ -698,11 +875,11 @@ fn download_and_extract(
         .unwrap_or("")
         .to_string();
 
-    // Iterando os arquivos
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let file_path = file.name().to_string(); // Clone pra usar no log
+        let file_path = file.name().to_string();
 
+        // Remove o prefixo da pasta raiz do zip
         let relative_path = file_path
             .strip_prefix(&format!("{}/", root_prefix))
             .unwrap_or(&file_path);
@@ -713,10 +890,9 @@ fn download_and_extract(
 
         let out_path = target_dir.join(relative_path);
 
-        // LOG: Extracting (Magenta / Purple)
-        // Usamos .dim() para não ficar gritando na tela, já que são muitos arquivos
         if !file.is_dir() {
-            println!("{:>12} {}", style("Extracting").magenta(), style(relative_path).dim());
+            // Logs discretos
+             // println!("{:>12} {}", style("Extracting").magenta().dim(), relative_path);
         }
 
         if file.is_dir() {
