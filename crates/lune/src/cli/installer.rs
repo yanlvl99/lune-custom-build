@@ -1,7 +1,7 @@
 //! Package installer with zip download.
 //!
 //! Installs packages from the central registry to ./lune_packages/
-
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -18,15 +18,16 @@ const REGISTRY_REPO: &str = "yanlvl99/lune-custom-build";
 const REGISTRY_BRANCH: &str = "main";
 
 /// Package manifest from the registry.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)] // <--- SÓ UMA DESSA
 #[allow(dead_code)]
 struct PackageManifest {
     name: String,
     #[serde(default)]
     description: Option<String>,
     repository: String,
+    #[serde(default)]
+    dependencies: HashMap<String, String>,
 }
-
 /// Local package info (lune-pkg.json).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LunePkgInfo {
@@ -98,7 +99,8 @@ struct LuauRc {
 
 /// Initialize a new Lune project.
 pub fn run_init() -> Result<ExitCode> {
-    println!("{}", style("Lune Project Initializer").cyan().bold());
+    println!("\n{}", style("  Lune Project Initializer").bold());
+    println!("{}", style("  ========================").dim());
 
     let cwd = std::env::current_dir()?;
     let config_path = cwd.join("lune.config.json");
@@ -129,148 +131,155 @@ pub fn run_init() -> Result<ExitCode> {
     }
 
     if generated_count > 0 {
-        println!(
-            "{} Generated {} type definition(s) in {}",
-            style("[OK]").green(),
-            generated_count,
-            typedefs_dir.display()
-        );
+        println!("{:>12} {} type definitions", style("Generated").green().bold(), generated_count);
     } else {
-        println!(
-            "{} Type definitions already exist",
-            style("[SKIP]").yellow()
-        );
+        println!("{:>12} Type definitions (already exist)", style("Skipped").yellow().bold());
     }
 
     // Create lune.config.json
     if config_path.exists() {
-        println!(
-            "{} lune.config.json already exists",
-            style("[SKIP]").yellow()
-        );
+        println!("{:>12} lune.config.json (already exists)", style("Skipped").yellow().bold());
     } else {
         let config = LuneConfig::default();
         std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
-        println!("{} Created lune.config.json", style("[OK]").green());
+        println!("{:>12} lune.config.json", style("Created").green().bold());
     }
 
     // Create .luaurc with @lune alias
-    if luaurc_path.exists() {
+    let mut luaurc = if luaurc_path.exists() {
         let content = std::fs::read_to_string(&luaurc_path)?;
-        let mut luaurc = serde_json::from_str::<LuauRc>(&content).unwrap_or_default();
-        if !luaurc.aliases.contains_key("lune") {
-            luaurc
-                .aliases
-                .insert("lune".to_owned(), typedefs_path.clone());
-            std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
-            println!("{} Updated .luaurc with @lune alias", style("[OK]").green());
-        } else {
-            println!(
-                "{} .luaurc already has @lune alias",
-                style("[SKIP]").yellow()
-            );
-        }
+        serde_json::from_str::<LuauRc>(&content).unwrap_or_default()
     } else {
-        let mut luaurc = LuauRc::default();
+        LuauRc::default()
+    };
+
+    if !luaurc.aliases.contains_key("lune") {
         luaurc
             .aliases
             .insert("lune".to_owned(), typedefs_path.clone());
         std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
-        println!("{} Created .luaurc with @lune alias", style("[OK]").green());
+        println!("{:>12} .luaurc with @lune alias", style("Updated").green().bold());
+    } else {
+        println!("{:>12} .luaurc alias (already exists)", style("Skipped").yellow().bold());
     }
 
     // Create lune_packages directory
     let packages_dir = cwd.join("lune_packages");
     if !packages_dir.exists() {
         std::fs::create_dir_all(&packages_dir)?;
-        println!("{} Created lune_packages/", style("[OK]").green());
+        println!("{:>12} lune_packages/", style("Created").green().bold());
     }
 
-    println!("\n{} Project initialized!", style("✓").green().bold());
-    println!(
-        "  Use {} to install packages",
-        style("lune --install <pkg>").cyan()
-    );
+    println!("\n{:>12} Project ready. Use 'lune --install <pkg>'", style("Success").green().bold());
 
     Ok(ExitCode::SUCCESS)
 }
 
-/// Run the installer with given packages or from config.
+// SUBSTITUA A FUNÇÃO run_install POR ESTA:
 pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
-    println!("{}", style("Lune Package Installer").cyan().bold());
+    // Cabeçalho bonito
+    println!("\n{}", style("  Lune Package Installer").bold());
+    println!("{}", style("  ======================").dim());
 
     let cwd = std::env::current_dir()?;
     let packages_dir = cwd.join("lune_packages");
 
-    // Parse package specs from command line
+    // Parse args
     let specs_from_args: Vec<PackageSpec> = packages
         .into_iter()
         .filter_map(|s| PackageSpec::try_from(s).ok())
         .collect();
 
-    // Determine packages to install
-    let packages_to_install = if specs_from_args.is_empty() {
+    // Determine queue
+    let mut packages_queue: VecDeque<PackageSpec> = if specs_from_args.is_empty() {
         let config_path = cwd.join("lune.config.json");
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)?;
             let config: LuneConfig = serde_json::from_str(&content)?;
             if config.packages.is_empty() {
-                println!(
-                    "{} No packages in lune.config.json. Use: lune --install <pkg>",
-                    style("[INFO]").blue()
-                );
+                println!("{:>12} No packages to install", style("Info").blue().bold());
                 return Ok(ExitCode::SUCCESS);
             }
-            config.packages
+            VecDeque::from(config.packages)
         } else {
-            println!(
-                "{} No lune.config.json found. Run: lune --init",
-                style("[WARN]").yellow()
-            );
+            println!("{:>12} No config found. Run lune --init", style("Warn").yellow().bold());
             return Ok(ExitCode::SUCCESS);
         }
     } else {
-        specs_from_args
+        VecDeque::from(specs_from_args)
     };
-
-    println!(
-        "{} Installing {} package(s)",
-        style("[1/4]").dim(),
-        style(packages_to_install.len()).green()
-    );
+    
+    let explicit_packages: Vec<PackageSpec> = packages_queue.iter().cloned().collect();
 
     if !packages_dir.exists() {
         std::fs::create_dir_all(&packages_dir)?;
     }
 
-    let mut installed: Vec<(String, PathBuf)> = Vec::new();
+    let mut installed_paths: Vec<(String, PathBuf)> = Vec::new();
+    let mut visited_packages: HashSet<String> = HashSet::new();
 
-    for spec in &packages_to_install {
-        println!("  {} {}", style("→").cyan(), style(&spec).bold());
+    // LOOP
+    while let Some(spec) = packages_queue.pop_front() {
+        if visited_packages.contains(&spec.name) {
+            continue;
+        }
+
+        // LOG: Resolving (Cyan)
+        println!("{:>12} {}", style("Resolving").cyan().bold(), style(&spec.name).bold());
 
         match install_package_with_version(&spec.name, spec.version.as_deref(), &packages_dir).await
         {
-            Ok(path) => {
-                println!("    {} Installed", style("✓").green());
-                installed.push((spec.name.clone(), path));
+            Ok((path, dependencies)) => {
+                // LOG: Installed (Green)
+                println!("{:>12} {} {}\n", 
+                    style("Installed").green().bold(), 
+                    spec.name,
+                    style(spec.version.as_deref().unwrap_or("latest")).dim()
+                );
+                
+                visited_packages.insert(spec.name.clone());
+                installed_paths.push((spec.name.clone(), path));
+
+                if !dependencies.is_empty() {
+                    for (dep_name, dep_ver) in dependencies {
+                        if !visited_packages.contains(&dep_name) {
+                            // LOG: Found (Dim/Blue)
+                            println!("{:>12} dependency: {}@{}", 
+                                style("Found").blue().dim(), 
+                                dep_name, 
+                                dep_ver
+                            );
+
+                            let version_opt = if dep_ver == "latest" || dep_ver == "*" {
+                                None
+                            } else {
+                                Some(dep_ver)
+                            };
+
+                            packages_queue.push_back(PackageSpec {
+                                name: dep_name,
+                                version: version_opt,
+                            });
+                        }
+                    }
+                }
             }
             Err(e) => {
-                eprintln!("    {} {}", style("✗").red(), e);
+                // LOG: Error (Red)
+                println!("{:>12} {} -> {}", style("Failed").red().bold(), spec.name, e);
             }
         }
     }
 
-    println!("{} Updating lune.config.json", style("[3/4]").dim());
-    update_config(&cwd, &packages_to_install)?;
+    // Config Update
+    println!("{:>12} lune.config.json", style("Updating").cyan().bold());
+    update_config(&cwd, &explicit_packages)?;
 
-    println!("{} Generating .luaurc", style("[4/4]").dim());
-    generate_luaurc(&cwd, &installed)?;
+    // Luaurc Update
+    println!("{:>12} .luaurc definition paths", style("Mapping").cyan().bold());
+    generate_luaurc(&cwd, &installed_paths)?;
 
-    println!(
-        "\n{} {} package(s) installed!",
-        style("✓").green().bold(),
-        installed.len()
-    );
+    println!("\n{:>12} All packages ready.\n", style("Finished").green().bold());
 
     Ok(ExitCode::SUCCESS)
 }
@@ -278,16 +287,14 @@ pub async fn run_install(packages: Vec<String>) -> Result<ExitCode> {
 /// Update all packages to latest versions.
 #[allow(clippy::unused_async)]
 pub async fn run_update() -> Result<ExitCode> {
-    println!("{}", style("Lune Package Updater").cyan().bold());
+    println!("\n{}", style("  Lune Package Updater").bold());
+    println!("{}", style("  ====================").dim());
 
     let cwd = std::env::current_dir()?;
     let config_path = cwd.join("lune.config.json");
 
     if !config_path.exists() {
-        println!(
-            "{} No lune.config.json found. Run: lune --init",
-            style("[WARN]").yellow()
-        );
+        println!("{:>12} No lune.config.json found", style("Error").red().bold());
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -295,7 +302,7 @@ pub async fn run_update() -> Result<ExitCode> {
     let mut config: LuneConfig = serde_json::from_str(&content)?;
 
     if config.packages.is_empty() {
-        println!("{} No packages to update", style("[INFO]").blue());
+        println!("{:>12} No packages to update", style("Info").blue().bold());
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -303,11 +310,8 @@ pub async fn run_update() -> Result<ExitCode> {
     let mut updated_count = 0;
 
     for spec in &mut config.packages {
-        println!(
-            "  {} Checking {}",
-            style("→").cyan(),
-            style(&spec.name).bold()
-        );
+        // Log: Checking package...
+        println!("{:>12} {}...", style("Checking").cyan().bold(), spec.name);
 
         let pkg_dir = packages_dir.join(&spec.name);
         let pkg_info_path = pkg_dir.join("lune-pkg.json");
@@ -329,13 +333,13 @@ pub async fn run_update() -> Result<ExitCode> {
 
         let manifest = match fetch_manifest(&manifest_url) {
             Ok(m) => m,
-            Err(e) => {
-                eprintln!("    {} Failed to fetch: {}", style("✗").red(), e);
+            Err(_) => {
+                println!("{:>12} Failed to fetch manifest for {}", style("Error").red().bold(), spec.name);
                 continue;
             }
         };
 
-        // Use locked version if specified, otherwise get latest
+        // Resolve version
         let target_version = match &spec.version {
             Some(v) => v.clone(),
             None => resolve_latest_tag_via_api(&manifest.repository)?,
@@ -344,10 +348,12 @@ pub async fn run_update() -> Result<ExitCode> {
         let needs_update = current_version.as_ref() != Some(&target_version);
 
         if needs_update {
-            println!(
-                "    {} Updating {} -> {}",
-                style("↳").dim(),
-                current_version.as_deref().unwrap_or("unknown"),
+            let old_ver = current_version.as_deref().unwrap_or("?");
+            
+            // Log: Updating v1 -> v2
+            println!("{:>12} {} -> {}", 
+                style("Updating").green().bold(), 
+                style(old_ver).dim(), 
                 style(&target_version).yellow()
             );
 
@@ -371,28 +377,20 @@ pub async fn run_update() -> Result<ExitCode> {
                     let pkg_info_path = packages_dir.join(&spec.name).join("lune-pkg.json");
                     std::fs::write(&pkg_info_path, serde_json::to_string_pretty(&pkg_info)?)?;
 
-                    // Update locked version in config
                     spec.version = Some(target_version);
-
-                    println!("    {} Updated", style("✓").green());
                     updated_count += 1;
                 }
                 Err(e) => {
-                    eprintln!("    {} {}", style("✗").red(), e);
+                    println!("{:>12} {}", style("Failed").red().bold(), e);
                 }
             }
         } else {
-            println!(
-                "    {} Already up to date ({})",
-                style("✓").dim(),
-                target_version
-            );
+            println!("{:>12} Up to date ({})", style("Skipped").dim(), target_version);
         }
     }
 
-    // Save updated config with locked versions
     std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
-
+    
     // Regenerate .luaurc
     let installed: Vec<(String, PathBuf)> = config
         .packages
@@ -401,11 +399,7 @@ pub async fn run_update() -> Result<ExitCode> {
         .collect();
     generate_luaurc(&cwd, &installed)?;
 
-    println!(
-        "\n{} {} package(s) updated!",
-        style("✓").green().bold(),
-        updated_count
-    );
+    println!("\n{:>12} {} packages updated", style("Finished").green().bold(), updated_count);
 
     Ok(ExitCode::SUCCESS)
 }
@@ -413,13 +407,11 @@ pub async fn run_update() -> Result<ExitCode> {
 /// Uninstall packages (supports multiple packages).
 #[allow(clippy::unused_async)]
 pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
-    println!("{}", style("Lune Package Uninstaller").cyan().bold());
+    println!("\n{}", style("  Lune Package Uninstaller").bold());
+    println!("{}", style("  ========================").dim());
 
     if packages.is_empty() {
-        println!(
-            "{} No packages specified. Usage: lune --uninstall <pkg1> [pkg2] ...",
-            style("[WARN]").yellow()
-        );
+        println!("{:>12} Usage: lune --uninstall <pkg>", style("Warn").yellow().bold());
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -431,25 +423,23 @@ pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
     let mut uninstalled_count = 0;
 
     for pkg_name in &packages {
-        println!("  {} {}", style("→").cyan(), style(pkg_name).bold());
-
         let pkg_dir = packages_dir.join(pkg_name);
         if pkg_dir.exists() {
             std::fs::remove_dir_all(&pkg_dir)?;
-            println!("    {} Removed directory", style("✓").green());
+            println!("{:>12} {}", style("Removed").green().bold(), pkg_name);
             uninstalled_count += 1;
         } else {
-            println!("    {} Package not found", style("⚠").yellow());
+            println!("{:>12} {} not found", style("Skipped").yellow().bold(), pkg_name);
         }
     }
 
-    // Update lune.config.json
+    // Update config
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path)?;
         let mut config: LuneConfig = serde_json::from_str(&content).unwrap_or_default();
         config.packages.retain(|p| !packages.contains(&p.name));
         std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
-        println!("{} Updated lune.config.json", style("[OK]").green());
+        println!("{:>12} lune.config.json", style("Cleaned").cyan().bold());
     }
 
     // Update .luaurc
@@ -460,27 +450,23 @@ pub async fn run_uninstall(packages: Vec<String>) -> Result<ExitCode> {
             luaurc.aliases.remove(pkg_name);
         }
         std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
-        println!("{} Updated .luaurc", style("[OK]").green());
+        println!("{:>12} .luaurc aliases", style("Cleaned").cyan().bold());
     }
 
-    println!(
-        "\n{} {} package(s) uninstalled!",
-        style("✓").green().bold(),
-        uninstalled_count
-    );
+    println!("\n{:>12} {} packages removed", style("Finished").green().bold(), uninstalled_count);
 
     Ok(ExitCode::SUCCESS)
 }
-
 /// List installed packages.
 pub fn run_list_packages() -> Result<ExitCode> {
-    println!("{}", style("Installed Packages").cyan().bold());
+    println!("\n{}", style("  Installed Packages").bold());
+    println!("{}", style("  ==================").dim());
 
     let cwd = std::env::current_dir()?;
     let packages_dir = cwd.join("lune_packages");
 
     if !packages_dir.exists() {
-        println!("{} No packages installed", style("[INFO]").blue());
+        println!("{:>12} No packages installed", style("Empty").dim());
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -490,32 +476,28 @@ pub fn run_list_packages() -> Result<ExitCode> {
             if entry.path().is_dir() {
                 let pkg_name = entry.file_name().to_string_lossy().to_string();
                 let pkg_info_path = entry.path().join("lune-pkg.json");
-
-                if pkg_info_path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&pkg_info_path) {
-                        if let Ok(info) = serde_json::from_str::<LunePkgInfo>(&content) {
-                            println!(
-                                "  {} {}@{}",
-                                style("•").cyan(),
-                                style(&info.name).bold(),
-                                style(&info.version).dim()
-                            );
-                            count += 1;
-                            continue;
-                        }
+                
+                let version = if let Ok(content) = std::fs::read_to_string(&pkg_info_path) {
+                    if let Ok(info) = serde_json::from_str::<LunePkgInfo>(&content) {
+                        info.version
+                    } else {
+                        "unknown".to_string()
                     }
-                }
-                // Fallback if no lune-pkg.json
-                println!("  {} {}", style("•").cyan(), style(&pkg_name).bold());
+                } else {
+                    "unknown".to_string()
+                };
+
+                // Formato:   nome-do-pacote   v1.0.0
+                println!("{:>16}   {}", style(pkg_name).bold(), style(version).dim());
                 count += 1;
             }
         }
     }
 
     if count == 0 {
-        println!("{} No packages installed", style("[INFO]").blue());
+        println!("{:>12} No packages installed", style("Empty").dim());
     } else {
-        println!("\n{} {} package(s) installed", style("Total:").dim(), count);
+        println!("\n{:>12} packages total", count);
     }
 
     Ok(ExitCode::SUCCESS)
@@ -523,18 +505,15 @@ pub fn run_list_packages() -> Result<ExitCode> {
 
 /// Show package info.
 pub fn run_package_info(name: &str) -> Result<ExitCode> {
-    println!("{}", style(format!("Package: {}", name)).cyan().bold());
-
     let cwd = std::env::current_dir()?;
     let pkg_dir = cwd.join("lune_packages").join(name);
     let pkg_info_path = pkg_dir.join("lune-pkg.json");
 
+    println!("\n{}", style(format!("  Package: {}", name)).bold());
+    println!("{}", style("  ========").dim());
+
     if !pkg_dir.exists() {
-        println!(
-            "{} Package '{}' not installed",
-            style("[ERROR]").red(),
-            name
-        );
+        println!("{:>12} Package not installed", style("Error").red().bold());
         return Ok(ExitCode::FAILURE);
     }
 
@@ -542,27 +521,28 @@ pub fn run_package_info(name: &str) -> Result<ExitCode> {
         let content = std::fs::read_to_string(&pkg_info_path)?;
         let info: LunePkgInfo = serde_json::from_str(&content)?;
 
-        println!("  {} {}", style("Name:").dim(), info.name);
-        println!("  {} {}", style("Version:").dim(), info.version);
+        // Alinhamento à direita das chaves
+        println!("{:>12} {}", style("Name").blue().bold(), info.name);
+        println!("{:>12} {}", style("Version").blue().bold(), style(info.version).yellow());
+        
         if let Some(desc) = &info.description {
-            println!("  {} {}", style("Description:").dim(), desc);
+            println!("{:>12} {}", style("Description").blue().bold(), desc);
         }
-        println!("  {} {}", style("Repository:").dim(), info.repository);
+        println!("{:>12} {}", style("Repository").blue().bold(), style(info.repository).underlined());
     } else {
-        println!("  {} {}", style("Name:").dim(), name);
-        println!("  {} No metadata available", style("Version:").dim());
+        println!("{:>12} No metadata found", style("Warn").yellow());
     }
 
-    // Show files
-    println!("\n  {}:", style("Files").dim());
+    println!("\n{:>12}", style("File Structure").dim());
     if let Ok(entries) = std::fs::read_dir(&pkg_dir) {
         for entry in entries.flatten() {
             let file_name = entry.file_name().to_string_lossy().to_string();
             let is_dir = entry.path().is_dir();
+            
             if is_dir {
-                println!("    {} {}/", style("📁").dim(), file_name);
+                println!("{:>12} {}/", style("Dir").dim(), file_name);
             } else {
-                println!("    {} {}", style("📄").dim(), file_name);
+                println!("{:>12} {}", style("File").dim(), file_name);
             }
         }
     }
@@ -570,33 +550,37 @@ pub fn run_package_info(name: &str) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-/// Install a single package via zip download with optional version.
+// SUBSTITUA A FUNÇÃO install_package_with_version POR ESTA:
 #[allow(clippy::unused_async)]
 async fn install_package_with_version(
     name: &str,
     version: Option<&str>,
     packages_dir: &Path,
-) -> Result<PathBuf> {
+) -> Result<(PathBuf, HashMap<String, String>)> {
     let manifest_url = format!(
         "https://raw.githubusercontent.com/{}/{}/manifest/{}.json",
         REGISTRY_REPO, REGISTRY_BRANCH, name
     );
+    
+    // Silencioso aqui, só erro se falhar
     let manifest = fetch_manifest(&manifest_url)?;
 
     let tag = match version {
         Some(v) => v.to_string(),
         None => resolve_latest_tag_via_api(&manifest.repository)?,
     };
-    println!("    {} tag: {}", style("↳").dim(), style(&tag).yellow());
+
+    // LOG: Downloading (Blue)
+    println!("{:>12} {} from GitHub...", style("Downloading").blue().bold(), style(&tag).yellow());
 
     let target_dir = packages_dir.join(name);
     if target_dir.exists() {
         std::fs::remove_dir_all(&target_dir)?;
     }
 
+    // Chama a função que extrai (e agora loga arquivos)
     download_and_extract(&manifest.repository, &tag, name, packages_dir)?;
 
-    // Save lune-pkg.json
     let pkg_info = LunePkgInfo {
         name: name.to_string(),
         version: tag.clone(),
@@ -606,7 +590,7 @@ async fn install_package_with_version(
     let pkg_info_path = target_dir.join("lune-pkg.json");
     std::fs::write(&pkg_info_path, serde_json::to_string_pretty(&pkg_info)?)?;
 
-    Ok(target_dir)
+    Ok((target_dir, manifest.dependencies))
 }
 
 /// Fetch package manifest from registry.
@@ -671,7 +655,7 @@ fn resolve_latest_tag_via_api(repo_url: &str) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("No valid semver tags found"))
 }
 
-/// Download and extract zip from GitHub releases.
+// SUBSTITUA A FUNÇÃO download_and_extract POR ESTA:
 fn download_and_extract(
     repo_url: &str,
     tag: &str,
@@ -706,7 +690,6 @@ fn download_and_extract(
     let target_dir = packages_dir.join(pkg_name);
     std::fs::create_dir_all(&target_dir)?;
 
-    // Get root folder name from first entry
     let root_prefix = archive
         .by_index(0)?
         .name()
@@ -715,19 +698,26 @@ fn download_and_extract(
         .unwrap_or("")
         .to_string();
 
+    // Iterando os arquivos
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let file_path = file.name();
+        let file_path = file.name().to_string(); // Clone pra usar no log
 
         let relative_path = file_path
             .strip_prefix(&format!("{}/", root_prefix))
-            .unwrap_or(file_path);
+            .unwrap_or(&file_path);
 
         if relative_path.is_empty() {
             continue;
         }
 
         let out_path = target_dir.join(relative_path);
+
+        // LOG: Extracting (Magenta / Purple)
+        // Usamos .dim() para não ficar gritando na tela, já que são muitos arquivos
+        if !file.is_dir() {
+            println!("{:>12} {}", style("Extracting").magenta(), style(relative_path).dim());
+        }
 
         if file.is_dir() {
             std::fs::create_dir_all(&out_path)?;
