@@ -1,6 +1,5 @@
 {
   "name": "@yanlvl99/windows-service",
-  "version": "1.0.0",
   "description": "Serviço de janelas para Lune",
   "repository": "https://github.com/yanlvl99/windows-service.git",
   "dependencies": {
