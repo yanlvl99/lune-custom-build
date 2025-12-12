@@ -3,6 +3,6 @@
   "description": "Serviço de janelas para Lune",
   "repository": "https://github.com/yanlvl99/windows-service.git",
   "dependencies": {
-    "@ffi-like-roblox": "github:yanlvl99/ffi-like-roblox@main"
+    "@ffi-like-roblox": "latest"
   }
 }
