@@ -3,6 +3,6 @@
   "description": "Motor FFI que converte DLLs nativas em Classes Lua",
   "repository": "https://github.com/yanlvl99/ffi-like-roblox.git",
   "dependencies": {
-    "signals-like-roblox"
+    "signals-like-roblox":"latest"
   }
 }
