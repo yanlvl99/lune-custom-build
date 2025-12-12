@@ -1,0 +1,6 @@
+{
+    "name": "windows-service",
+    "description": "",
+    "repository": "https://github.com/yanlvl99/windows-service.git",
+    "dependencies": {"ffi-like-roblox":"latest"}
+}
