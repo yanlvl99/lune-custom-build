@@ -2,6 +2,7 @@
   <img src="assets/logo/tilt-grid.png" alt="Lune Custom Build" width="200" />
   <h1>Lune Custom Build</h1>
   <p><strong>A standalone Luau runtime for backend and game-server development</strong></p>
+  <p><em>(A custom fork of <a href="https://github.com/lune-org/lune">Lune</a> with extended features)</em></p>
   
   [![Release](https://img.shields.io/github/v/release/yanlvl99/lune-custom-build?style=flat-square&color=C848E9)](https://github.com/yanlvl99/lune-custom-build/releases)
   [![License](https://img.shields.io/github/license/yanlvl99/lune-custom-build?style=flat-square&color=E168FF)](LICENSE.txt)
@@ -15,6 +16,8 @@
 ---
 
 ## What is Lune?
+
+This is **Lune Custom Build**, a project based on the original [Lune](https://github.com/lune-org/lune) runtime.
 
 Lune is a lightweight, high-performance runtime for **Luau** (the language used by Roblox). It allows you to write scripts, servers, and tools using the language you already love, but running standalone on your machine or server—independent of Roblox.
 
