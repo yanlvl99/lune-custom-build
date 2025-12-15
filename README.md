@@ -14,146 +14,62 @@
 
 ---
 
+## What is Lune?
+
+Lune is a lightweight, high-performance runtime for **Luau** (the language used by Roblox). It allows you to write scripts, servers, and tools using the language you already love, but running standalone on your machine or server—independent of Roblox.
+
 ## ✨ Features
 
-| Feature                 | Description                                     |
-| ----------------------- | ----------------------------------------------- |
-| 📦 **Package Manager**  | Built-in `--init` and `--install` commands      |
-| 🗄️ **SQL Database**     | SQLite support via `@lune/sql`                  |
-| 🔌 **UDP/TCP Sockets**  | Low-level networking for game servers           |
-| 🔧 **Extended Globals** | `math.clamp`, `math.lerp`, `uuid.v4`, `uuid.v7` |
-| 🔗 **FFI**              | Call native C libraries directly                |
-| 🏗️ **Build to EXE**     | Compile scripts to standalone executables       |
+Lune comes batteries-included with everything you need for robust development:
 
-## 🚀 Quick Start
+### 🛠️ Runtime & Tooling
 
-### Installation
+- **Package Manager**: Built-in `lune --install` and `lune --init`.
+- **Standalone Binaries**: Compile your scripts into `.exe` or binary files with `lune --build`.
+- **Interactive REPL**: Test code quickly with `lune --repl`.
+- **Task Scheduler**: Async/await support with `task.spawn`, `task.delay`, `task.wait`.
 
-**Windows (PowerShell):**
+### 📚 Standard Library
+
+- **Networking**: Full TCP/UDP sockets and HTTP/WebSocket clients/servers (`@lune/net`).
+- **File System**: Read/write files and directories asynchronously (`@lune/fs`).
+- **Process Control**: Spawn and control child processes (`@lune/process`).
+- **Database**: Built-in SQLite support (`@lune/sql`).
+- **Foreign Function Interface (FFI)**: Zero-copy access to native C libraries (`@lune/ffi`).
+
+### 📦 Data & Utilities
+
+- **Serialization**: JSON, YAML, and TOML parsing/encoding (`@lune/serde`).
+- **Roblox Types**: Native support for CFrame, Vector3, Color3, etc. (`@lune/roblox`).
+- **Cryptography**: Hashing, encoding, and UUID generation.
+- **Console**: Rich terminal output with colors and formatting (`@lune/stdio`).
+
+---
+
+## � Quick Start
+
+### Installation (Windows)
 
 ```powershell
-irm https://yanlvl99.github.io/lune-custom-build-doc/install.ps1 | iex
+irm https://raw.githubusercontent.com/yanlvl99/lune-custom-build/main/installer/install.ps1 | iex
 ```
 
-**Manual Download:**
-Download from [Releases](https://github.com/yanlvl99/lune-custom-build/releases) and add to PATH.
+### Other Platforms
 
-**From Source:**
+Download the latest binary for Linux or macOS from the **[Releases Page](https://github.com/yanlvl99/lune-custom-build/releases)**.
 
-```bash
-cargo build --release
-```
-
-### Usage
-
-```bash
-lune script.luau           # Run a script
-lune --init                # Initialize project with LSP support
-lune --install colors      # Install package from registry
-lune --build script.luau   # Build standalone executable
-lune --repl                # Interactive REPL
-```
-
-## 📝 Examples
-
-### Hello World
-
-```lua
-print("Hello from Lune!")
-```
-
-### HTTP Server
-
-```lua
-local net = require("@lune/net")
-
-net.serve(8080, function(request)
-    return {
-        status = 200,
-        body = "Hello, World!"
-    }
-end)
-```
-
-### SQL Database
-
-```lua
-local sql = require("@lune/sql")
-local db = sql.open("app.db")
-
-db:execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
-db:execute("INSERT INTO users (name) VALUES (?)", "John")
-
-local users = db:query("SELECT * FROM users")
-for _, user in users do
-    print(user.name)
-end
-```
-
-### UDP Game Server
-
-```lua
-local net = require("@lune/net")
-local socket = net.udp.bind("0.0.0.0:27015")
-
-while true do
-    local data, addr = socket:recv()
-    print("Received from", addr, ":", data)
-    socket:send(addr, "ACK")
-end
-```
-
-### FFI (Native Libraries)
-
-```lua
-local ffi = require("@lune/ffi")
-local lib = ffi.open("user32")
-
-local MessageBoxA = lib:fn("MessageBoxA", ffi.types.i32, {
-    ffi.types.ptr, ffi.types.ptr, ffi.types.ptr, ffi.types.u32
-})
-
-MessageBoxA(nil, "Hello FFI!", "Lune", 0)
-```
-
-## 📦 Package Manager
-
-Initialize a new project:
-
-```bash
-lune --init
-```
-
-Install packages:
-
-```bash
-lune --install colors networking discord
-```
-
-Update packages:
-
-```bash
-lune --updpkg
-```
+---
 
 ## 📚 Documentation
 
-Full documentation available at: **[yanlvl99.github.io/lune-custom-build-doc](https://yanlvl99.github.io/lune-custom-build-doc/)**
+Detailed guides, API references, and tutorials are available at:
 
-- [Getting Started](https://yanlvl99.github.io/lune-custom-build-doc/getting-started/1-installation/)
-- [API Reference](https://yanlvl99.github.io/lune-custom-build-doc/api-reference/fs/)
-- [The Lune Book](https://yanlvl99.github.io/lune-custom-build-doc/the-book/1-hello-lune/)
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to open issues or submit pull requests.
-
-## 📄 License
-
-Licensed under the [Mozilla Public License 2.0](LICENSE.txt).
+### [👉 yanlvl99.github.io/lune-custom-build-doc](https://yanlvl99.github.io/lune-custom-build-doc/)
 
 ---
 
 <div align="center">
   <sub>Built with ❤️ for the Luau community</sub>
+  <br>
+  <sub>Licensed under MPL 2.0</sub>
 </div>
