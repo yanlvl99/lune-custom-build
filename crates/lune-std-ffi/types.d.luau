@@ -325,8 +325,29 @@ export type Library = {
 	--- @example `lib:call("MessageBoxA", "i32", {"pointer", "string", "string", "u32"}, nil, "Hello", "Title", 0)`
 	call: (self: Library, name: string, retType: CType, argTypes: { CType }, ...any) -> any,
 
+	--- Optimized call for (void) -> i32 functions.
+	callInt: (self: Library, name: string) -> number,
+
+	--- Optimized call for (i64) -> i32 functions.
+	callIntArg: (self: Library, name: string, arg: number) -> number,
+
+	--- Optimized call for (void) -> f64 functions.
+	callDouble: (self: Library, name: string) -> number,
+
+	--- Optimized call for (void) -> void functions.
+	callVoid: (self: Library, name: string) -> (),
+
+	--- Optimized call for (void) -> string functions.
+	callString: (self: Library, name: string) -> string,
+
 	--- Call via function pointer.
-	callPtr: (self: Library, ptr: RawPointer, retType: CType, argTypes: { CType }, ...any) -> any,
+	callPtr: (
+		self: Library,
+		ptr: RawPointer | any,
+		retType: CType,
+		argTypes: { CType },
+		...any
+	) -> any,
 
 	--- Close the library handle.
 	--- @example `lib:close()`
