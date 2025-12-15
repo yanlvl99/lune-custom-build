@@ -37,6 +37,11 @@ impl NativeLibrary {
         })
     }
 
+    /// Get the library Arc for sharing with SmartLibrary.
+    pub fn library_arc(&self) -> Arc<Library> {
+        Arc::clone(&self.library)
+    }
+
     /// Get a raw symbol pointer by name.
     fn get_symbol_ptr(&self, name: &str) -> LuaResult<*const std::ffi::c_void> {
         let cname = CString::new(name).map_err(|_| {

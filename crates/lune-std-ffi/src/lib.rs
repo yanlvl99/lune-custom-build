@@ -26,6 +26,8 @@ mod callback;
 mod caller;
 mod library;
 mod pointer;
+mod scratch_arena;
+mod smart_library;
 mod struct_mapper;
 mod types;
 
@@ -33,6 +35,7 @@ pub use arena::Arena;
 pub use callback::FfiCallback;
 pub use library::{BoundFunction, NativeLibrary};
 pub use pointer::{RawPointer, TypedPointer};
+pub use smart_library::{SmartBoundFunction, SmartLibrary};
 pub use struct_mapper::{StructDefinition, StructView};
 pub use types::{Buffer, CType};
 
@@ -51,13 +54,38 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
     // Library Loading
     // ========================================================================
 
-    // ffi.load(path: string) -> NativeLibrary (Modern API)
+    // ffi.load(path: string, interface?: table) -> NativeLibrary | SmartLibrary
+    // When interface is provided, returns SmartLibrary with pre-bound functions
     exports.set(
         "load",
-        lua.create_function(|_, path: String| NativeLibrary::open(&path))?,
+        lua.create_function(|lua, args: LuaMultiValue| {
+            let mut args_iter = args.into_iter();
+
+            let path: String = match args_iter.next() {
+                Some(v) => FromLua::from_lua(v, lua)?,
+                None => return Err(LuaError::external("Missing path argument")),
+            };
+
+            let interface: Option<LuaTable> = match args_iter.next() {
+                Some(LuaValue::Table(t)) => Some(t),
+                Some(LuaValue::Nil) | None => None,
+                Some(_) => return Err(LuaError::external("Interface must be a table")),
+            };
+
+            let native_lib = NativeLibrary::open(&path)?;
+
+            if let Some(iface) = interface {
+                // Create SmartLibrary with pre-bound functions
+                let smart = SmartLibrary::from_interface(native_lib.library_arc(), path, iface)?;
+                smart.into_lua(lua)
+            } else {
+                // Legacy mode - return NativeLibrary
+                native_lib.into_lua(lua)
+            }
+        })?,
     )?;
 
-    // ffi.open(path: string) -> NativeLibrary (Legacy alias)
+    // ffi.open(path: string) -> NativeLibrary (Legacy/Deprecated)
     exports.set(
         "open",
         lua.create_function(|_, path: String| NativeLibrary::open(&path))?,
@@ -349,6 +377,26 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
     // ffi.types - type constants and utilities
     exports.set("types", types::create_types_table(&lua)?)?;
 
+    // ffi.ctypes - type name strings (for use in signatures)
+    let ctypes = lua.create_table()?;
+    ctypes.set("void", "void")?;
+    ctypes.set("bool", "bool")?;
+    ctypes.set("i8", "i8")?;
+    ctypes.set("u8", "u8")?;
+    ctypes.set("i16", "i16")?;
+    ctypes.set("u16", "u16")?;
+    ctypes.set("i32", "i32")?;
+    ctypes.set("u32", "u32")?;
+    ctypes.set("i64", "i64")?;
+    ctypes.set("u64", "u64")?;
+    ctypes.set("f32", "f32")?;
+    ctypes.set("f64", "f64")?;
+    ctypes.set("isize", "isize")?;
+    ctypes.set("usize", "usize")?;
+    ctypes.set("pointer", "pointer")?;
+    ctypes.set("string", "string")?;
+    exports.set("ctypes", ctypes)?;
+
     // ========================================================================
     // Callbacks
     // ========================================================================
@@ -371,6 +419,70 @@ pub fn module(lua: Lua) -> LuaResult<LuaTable> {
             },
         )?,
     )?;
+
+    // ========================================================================
+    // Unsafe Intrinsics (ffi.unsafe)
+    // ========================================================================
+
+    let unsafe_table = lua.create_table()?;
+
+    // ffi.unsafe.read(addr, type) -> value
+    // Direct memory read with NO safety checks
+    unsafe_table.set(
+        "read",
+        lua.create_function(|lua, (addr, ctype): (usize, CType)| {
+            let ptr = addr as *mut u8;
+            pointer::read_value_at(lua, ptr, ctype)
+        })?,
+    )?;
+
+    // ffi.unsafe.write(addr, type, value)
+    // Direct memory write with NO safety checks
+    unsafe_table.set(
+        "write",
+        lua.create_function(|lua, (addr, ctype, value): (usize, CType, LuaValue)| {
+            let ptr = addr as *mut u8;
+            pointer::write_value_at(lua, ptr, ctype, value)
+        })?,
+    )?;
+
+    // ffi.unsafe.copy(dst, src, len)
+    // Direct memcpy with NO overlap check
+    unsafe_table.set(
+        "copy",
+        lua.create_function(|_, (dst, src, len): (usize, usize, usize)| {
+            unsafe {
+                ptr::copy_nonoverlapping(src as *const u8, dst as *mut u8, len);
+            }
+            Ok(())
+        })?,
+    )?;
+
+    // ffi.unsafe.fill(addr, len, byte)
+    // Direct memset with NO bounds check
+    unsafe_table.set(
+        "fill",
+        lua.create_function(|_, (addr, len, byte): (usize, usize, u8)| {
+            unsafe {
+                ptr::write_bytes(addr as *mut u8, byte, len);
+            }
+            Ok(())
+        })?,
+    )?;
+
+    // ffi.unsafe.zero(addr, len)
+    // Zero memory (alias for fill with 0)
+    unsafe_table.set(
+        "zero",
+        lua.create_function(|_, (addr, len): (usize, usize)| {
+            unsafe {
+                ptr::write_bytes(addr as *mut u8, 0, len);
+            }
+            Ok(())
+        })?,
+    )?;
+
+    exports.set("unsafe", unsafe_table)?;
 
     Ok(exports)
 }

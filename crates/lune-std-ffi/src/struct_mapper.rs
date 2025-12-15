@@ -246,6 +246,36 @@ impl LuaUserData for StructView {
         // Get pointer to a field
         methods.add_method("fieldPtr", |_, this, name: String| this.field_ptr(&name));
 
+        // pointTo(ptr) - Update the pointer this view points to (zero-GC iteration)
+        methods.add_method_mut("pointTo", |_, this, ptr: LuaValue| {
+            match ptr {
+                LuaValue::UserData(ud) => {
+                    if let Ok(raw) = ud.borrow::<RawPointer>() {
+                        this.ptr = raw.addr;
+                        this.arena_id = raw.arena_id;
+                    } else {
+                        return Err(LuaError::external(
+                            "Expected RawPointer, number, or address",
+                        ));
+                    }
+                }
+                LuaValue::Integer(addr) => {
+                    this.ptr = addr as usize as *mut c_void;
+                    this.arena_id = 0; // Unmanaged
+                }
+                LuaValue::Number(addr) => {
+                    this.ptr = addr as usize as *mut c_void;
+                    this.arena_id = 0; // Unmanaged
+                }
+                LuaValue::LightUserData(lud) => {
+                    this.ptr = lud.0;
+                    this.arena_id = 0; // Unmanaged
+                }
+                _ => return Err(LuaError::external("Expected pointer, number, or address")),
+            }
+            Ok(())
+        });
+
         // ToString
         methods.add_meta_method(LuaMetaMethod::ToString, |_, this, ()| {
             Ok(format!(

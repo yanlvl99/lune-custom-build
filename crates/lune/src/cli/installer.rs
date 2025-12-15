@@ -97,6 +97,35 @@ struct LuauRc {
     aliases: std::collections::HashMap<String, String>,
 }
 
+/// Ensure type definitions are up to date (silent, no output).
+/// Called automatically when running scripts.
+pub fn ensure_typedefs() {
+    let version = env!("CARGO_PKG_VERSION");
+    let Some(user_dirs) = UserDirs::new() else {
+        return;
+    };
+
+    let typedefs_dir = user_dirs
+        .home_dir()
+        .join(".lune")
+        .join(".typedefs")
+        .join(version);
+
+    // Create directory if needed
+    if typedefs_dir.exists() {
+        // Already exists for this version, assume current
+        return;
+    }
+
+    let _ = std::fs::create_dir_all(&typedefs_dir);
+
+    // Write all type definitions
+    for lib in LuneStandardLibrary::ALL {
+        let typedef_file = typedefs_dir.join(format!("{}.luau", lib.name()));
+        let _ = std::fs::write(&typedef_file, lib.typedefs());
+    }
+}
+
 /// Initialize a new Lune project.
 pub fn run_init() -> Result<ExitCode> {
     println!("\n{}", style("  Lune Project Initializer").bold());
@@ -106,42 +135,25 @@ pub fn run_init() -> Result<ExitCode> {
     let config_path = cwd.join("lune.config.json");
     let luaurc_path = cwd.join(".luaurc");
 
-    // Get version and user home for typedefs path
-    let version = env!("CARGO_PKG_VERSION");
-    let user_dirs = UserDirs::new().context("Failed to find user home directory")?;
-    let typedefs_dir = user_dirs
-        .home_dir()
-        .join(".lune")
-        .join(".typedefs")
-        .join(version);
-    let typedefs_path = format!("~/.lune/.typedefs/{}/", version);
-
-    // Generate type definitions
-    if !typedefs_dir.exists() {
-        std::fs::create_dir_all(&typedefs_dir)?;
+    // Write type definitions to local ./types/ directory
+    let local_types_dir = cwd.join("types");
+    if !local_types_dir.exists() {
+        std::fs::create_dir_all(&local_types_dir)?;
     }
 
     let mut generated_count = 0;
     for lib in LuneStandardLibrary::ALL {
-        let typedef_file = typedefs_dir.join(format!("{}.luau", lib.name()));
-        if !typedef_file.exists() {
-            std::fs::write(&typedef_file, lib.typedefs())?;
-            generated_count += 1;
-        }
+        let typedef_file = local_types_dir.join(format!("{}.luau", lib.name()));
+        // Always write to ensure types are current
+        std::fs::write(&typedef_file, lib.typedefs())?;
+        generated_count += 1;
     }
 
-    if generated_count > 0 {
-        println!(
-            "{:>12} {} type definitions",
-            style("Generated").green().bold(),
-            generated_count
-        );
-    } else {
-        println!(
-            "{:>12} Type definitions (already exist)",
-            style("Skipped").yellow().bold()
-        );
-    }
+    println!(
+        "{:>12} {} type definitions to ./types/",
+        style("Updated").green().bold(),
+        generated_count
+    );
 
     // Create lune.config.json
     if config_path.exists() {
@@ -155,7 +167,7 @@ pub fn run_init() -> Result<ExitCode> {
         println!("{:>12} lune.config.json", style("Created").green().bold());
     }
 
-    // Create .luaurc with @lune alias
+    // Create .luaurc with @lune alias pointing to local types
     let mut luaurc = if luaurc_path.exists() {
         let content = std::fs::read_to_string(&luaurc_path)?;
         serde_json::from_str::<LuauRc>(&content).unwrap_or_default()
@@ -163,18 +175,22 @@ pub fn run_init() -> Result<ExitCode> {
         LuauRc::default()
     };
 
-    if !luaurc.aliases.contains_key("lune") {
+    // Always update lune alias to ensure it points to ./types/
+    let current_alias = luaurc.aliases.get("lune");
+    let needs_update = current_alias != Some(&"./types/".to_owned());
+
+    if needs_update {
         luaurc
             .aliases
-            .insert("lune".to_owned(), typedefs_path.clone());
+            .insert("lune".to_owned(), "./types/".to_owned());
         std::fs::write(&luaurc_path, serde_json::to_string_pretty(&luaurc)?)?;
         println!(
-            "{:>12} .luaurc with @lune alias",
+            "{:>12} .luaurc with @lune -> ./types/",
             style("Updated").green().bold()
         );
     } else {
         println!(
-            "{:>12} .luaurc alias (already exists)",
+            "{:>12} .luaurc alias (already correct)",
             style("Skipped").yellow().bold()
         );
     }
@@ -346,7 +362,10 @@ pub async fn run_update() -> Result<ExitCode> {
     let config_path = cwd.join("lune.config.json");
 
     if !config_path.exists() {
-        println!("{:>12} No lune.config.json found", style("Error").red().bold());
+        println!(
+            "{:>12} No lune.config.json found",
+            style("Error").red().bold()
+        );
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -389,7 +408,11 @@ pub async fn run_update() -> Result<ExitCode> {
         let manifest = match fetch_manifest(&manifest_url) {
             Ok(m) => m,
             Err(_) => {
-                println!("{:>12} Failed to fetch manifest for {}", style("Error").red().bold(), spec.name);
+                println!(
+                    "{:>12} Failed to fetch manifest for {}",
+                    style("Error").red().bold(),
+                    spec.name
+                );
                 continue;
             }
         };
@@ -407,11 +430,12 @@ pub async fn run_update() -> Result<ExitCode> {
 
         if needs_update || !pkg_dir.exists() {
             let old_ver = current_version.as_deref().unwrap_or("?");
-            
+
             // LOG: Updating v1 -> v2
-            println!("{:>12} {} -> {}", 
-                style("Updating").green().bold(), 
-                style(old_ver).dim(), 
+            println!(
+                "{:>12} {} -> {}",
+                style("Updating").green().bold(),
+                style(old_ver).dim(),
                 style(&target_version).yellow()
             );
 
@@ -440,9 +464,9 @@ pub async fn run_update() -> Result<ExitCode> {
 
                     // Atualiza a spec no config em memória (se estava latest, agora sabemos a versão)
                     // Mas geralmente mantemos como "None" no config se o usuário quer updates automaticos.
-                    // Aqui atualizamos apenas se quisermos "Lockar" a versão. 
+                    // Aqui atualizamos apenas se quisermos "Lockar" a versão.
                     // Para manter comportamento "npm update", não alteramos o config se for latest.
-                    
+
                     updated_count += 1;
                 }
                 Err(e) => {
@@ -450,13 +474,17 @@ pub async fn run_update() -> Result<ExitCode> {
                 }
             }
         } else {
-            println!("{:>12} Up to date ({})", style("Skipped").dim(), target_version);
+            println!(
+                "{:>12} Up to date ({})",
+                style("Skipped").dim(),
+                target_version
+            );
         }
     }
 
     // Não precisamos reescrever o lune.config.json no update, a menos que mudemos a versão travada.
     // std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
-    
+
     // Regenera .luaurc (caso caminhos tenham mudado ou algo corrompido)
     let installed: Vec<(String, PathBuf)> = config
         .packages
@@ -465,7 +493,11 @@ pub async fn run_update() -> Result<ExitCode> {
         .collect();
     generate_luaurc(&cwd, &installed)?;
 
-    println!("\n{:>12} {} packages updated", style("Finished").green().bold(), updated_count);
+    println!(
+        "\n{:>12} {} packages updated",
+        style("Finished").green().bold(),
+        updated_count
+    );
 
     Ok(ExitCode::SUCCESS)
 }
@@ -892,7 +924,7 @@ fn download_and_extract(
 
         if !file.is_dir() {
             // Logs discretos
-             // println!("{:>12} {}", style("Extracting").magenta().dim(), relative_path);
+            // println!("{:>12} {}", style("Extracting").magenta().dim(), relative_path);
         }
 
         if file.is_dir() {

@@ -7,6 +7,7 @@ use futures_lite::prelude::*;
 
 use lune::Runtime;
 
+use super::installer::ensure_typedefs;
 use super::utils::files::discover_script_path_including_lune_dirs;
 
 /// Run a script
@@ -20,6 +21,9 @@ pub struct RunCommand {
 
 impl RunCommand {
     pub async fn run(self) -> Result<ExitCode> {
+        // Ensure type definitions are current (silent, fast)
+        ensure_typedefs();
+
         // Check if the user has explicitly disabled JIT (on by default)
         let jit_disabled = env::var("LUNE_LUAU_JIT")
             .ok()
